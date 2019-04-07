@@ -139,6 +139,10 @@ require：表示应该先执行本资源，在执行别的资源
 notify：A notify B：B依赖于A，且A发生改变后会通知B；
 subscribe：B subscribe A：B依赖于A，且B监控A资源的变化产生的事件；
 
+![](D:\Desktop\学习笔记\assets\puppet配置目录结构.png)
+
+
+
 **简单举例**
 ***example 1***
 
