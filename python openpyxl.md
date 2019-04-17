@@ -57,7 +57,7 @@ test.xlsx表中的内容：
 >>> ws1.title = "Sheet1"
 ws1
 <Worksheet "Sheet1">
-
+>>> wb.sheetnames  # 获取工作表列表
 >>> print(wb.sheetnames)
 ['Mysheet1', 'Sheet', 'Sheet1']
 
@@ -80,10 +80,18 @@ Sheet1
 #### (2)数据操作
 ##### 访问一个单元格Cell
 ```python
+# 取得A4单元格
 >>> c= ws['A4']
+# 为A4单元格输入内容
 >>> ws['A4'] = 4
-##为B4赋值为10
-d = ws.cell(row=4, column=2, value=10)
+#为B4赋值为10
+>>> d = ws.cell(row=4, column=2, value=10)
+# 通过指定行列号获取单元格
+>>> ws.cell(row=1,column=2)
+<Cell 'Sheet1'.B2>
+
+ws.max_row  # 取得最大行号
+ws.max_column # 取得最大列号
 ```
 ##### 访问多个单元格cells
 
@@ -101,9 +109,14 @@ sheet.columns类似，不过里面是每个tuple是每一列的单元格。
 
 读取数据
 ```python
+# 遍历工作簿中所有数据
 for row in ws.values:
-	for value in row:
-		print(value)
+    for value in row:
+        print(value,end=" ")
+    print()
+# 遍历指定column的数据
+for i in range(ws.min_row,ws.max_row+1):
+    print(i,ws.cell(row=i,column=2).value) #输出第二列数据
 ```
 举例：
 ```python
