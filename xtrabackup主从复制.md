@@ -10,27 +10,45 @@
 ###### 1、备份 主库 node1
 ```shell
 # 全备份
-# xtrabackup --defaults-file=/etc/my.cnf --user=root --password=123456 --backup --target-dir=/data/mysql/base/full
+# xtrabackup --defaults-file=/etc/my.cnf \
+             --user=root \ 
+             --password=123456 \
+             --backup \
+             --target-dir=/data/mysql/base/full
 生成 /data/mysql/base/full
 
 # 修改数据库1
 
 # 第一次增量备份
-# xtrabackup --defaults-file=/etc/my.cnf --user=root --password=123456 --backup --target-dir=/data/mysql/inc/inc1 --incremental-basedir=/data/mysql/base/full
+# xtrabackup --defaults-file=/etc/my.cnf \
+             --user=root --password=123456 \
+             --backup \
+             --target-dir=/data/mysql/inc/inc1 \
+             --incremental-basedir=/data/mysql/base/full
 生成 /data/mysql/inc/inc1
 
 # 修改数据库2
 
 # 第二次增量备份 在inc1的基础上
-# xtrabackup --defaults-file=/etc/my.cnf --user=root --password=123456 --backup --target-dir=/data/mysql/inc/inc2 --incremental-basedir=/data/mysql/inc/inc1
+# xtrabackup --defaults-file=/etc/my.cnf \
+             --user=root \
+             --password=123456 \
+             --backup \
+             --target-dir=/data/mysql/inc/inc2 \
+             --incremental-basedir=/data/mysql/inc/inc1
 生成 /data/mysql/inc/inc2
 ```
 ###### 2、还原准备
 ```shell
 # 还原准备阶段
-# xtrabackup --prepare --apply-log-only --target-dir=/data/mysql/base/full
-# xtrabackup --prepare --apply-log-only --target-dir=/data/mysql/base/full --incremental-dir=/data/mysql/inc/inc1
-# xtrabackup --prepare --apply-log-only --target-dir=/data/mysql/base/full --incremental-dir=/data/mysql/inc/inc2
+# xtrabackup --prepare --apply-log-only \
+             --target-dir=/data/mysql/base/full
+# xtrabackup --prepare --apply-log-only \
+             --target-dir=/data/mysql/base/full \
+             --incremental-dir=/data/mysql/inc/inc1
+# xtrabackup --prepare --apply-log-only \
+             --target-dir=/data/mysql/base/full \
+             --incremental-dir=/data/mysql/inc/inc2
 ```
 ###### 3、打包数据,并复制到从节点
 ```shell
@@ -92,7 +110,11 @@ mysql> FLUSH PRIVILEGES;
 ./mysql-bin.000002	761
 
 # 执行slave
-mysql> change master to master_host='192.168.56.3',master_user='repluser',master_password='centos',master_log_file='mysql-bin.000002',master_log_pos=761;
+mysql> change master to master_host='192.168.56.3',\
+                        master_user='repluser',\
+                        master_password='centos',\
+                        master_log_file='mysql-bin.000002',\
+                        master_log_pos=761;
 mysql> start slave;
 
 # 查看
