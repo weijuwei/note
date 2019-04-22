@@ -10,16 +10,16 @@
 ###### 1、备份 主库 node1
 ```shell
 # 全备份
-# xtrabackup --defaults-file=/etc/my.cnf --user=root --password=123456 --backup --target-dir=/data/mysql/base/`date +%Y%m%d_%H%M%S`
-生成 /data/mysql/base/20190422_082018
+# xtrabackup --defaults-file=/etc/my.cnf --user=root --password=123456 --backup --target-dir=/data/mysql/base/full
+生成 /data/mysql/base/full
 
-修改数据库1
+# 修改数据库1
 
 # 第一次增量备份
-# xtrabackup --defaults-file=/etc/my.cnf --user=root --password=123456 --backup --target-dir=/data/mysql/inc/inc1 --incremental-basedir=/data/mysql/base/20190422_082018
+# xtrabackup --defaults-file=/etc/my.cnf --user=root --password=123456 --backup --target-dir=/data/mysql/inc/inc1 --incremental-basedir=/data/mysql/base/full
 生成 /data/mysql/inc/inc1
 
-修改数据库2
+# 修改数据库2
 
 # 第二次增量备份 在inc1的基础上
 # xtrabackup --defaults-file=/etc/my.cnf --user=root --password=123456 --backup --target-dir=/data/mysql/inc/inc2 --incremental-basedir=/data/mysql/inc/inc1
@@ -28,13 +28,13 @@
 ###### 2、还原准备
 ```shell
 # 还原准备阶段
-# xtrabackup --prepare --apply-log-only --target-dir=/data/mysql/base/20190422_082018
-# xtrabackup --prepare --apply-log-only --target-dir=/data/mysql/base/20190422_082018 --incremental-dir=/data/mysql/inc/inc1
-# xtrabackup --prepare --apply-log-only --target-dir=/data/mysql/base/20190422_082018 --incremental-dir=/data/mysql/inc/inc2
+# xtrabackup --prepare --apply-log-only --target-dir=/data/mysql/base/full
+# xtrabackup --prepare --apply-log-only --target-dir=/data/mysql/base/full --incremental-dir=/data/mysql/inc/inc1
+# xtrabackup --prepare --apply-log-only --target-dir=/data/mysql/base/full --incremental-dir=/data/mysql/inc/inc2
 ```
 ###### 3、打包数据,并复制到从节点
 ```shell
-# tar cvf xtrabackup_base.tar /data/mysql/base/20190422_082018
+# tar cvf xtrabackup_base.tar /data/mysql/base/full
 # scp xtrabackup_base.tar node2:/data/mysql/
 ```
 ###### 4、还原数据 从库node2
@@ -42,7 +42,7 @@
 ```shell
 # 还原数据
 # tar xf xtrabackup_base.tar
-# xtrabackup --user=root --password=123456 --copy-back --target-dir=/data/mysql/20190422_082018
+# xtrabackup --user=root --password=123456 --copy-back --target-dir=/data/mysql/full
 
 # 修改权限
 # chown -R mysql.mysql /var/lib/mysql/
@@ -53,7 +53,6 @@
 # 记录日志点，后面做主从使用
 # cat xtrabackup_binlog_pos_innodb 
 ./mysql-bin.000002	761
-
 ```
 #### 二、主从同步复制阶段
 ##### 1、主从库配置文件
