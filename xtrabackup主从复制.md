@@ -32,12 +32,12 @@
 # xtrabackup --prepare --apply-log-only --target-dir=/data/mysql/base/20190422_082018 --incremental-dir=/data/mysql/inc/inc1
 # xtrabackup --prepare --apply-log-only --target-dir=/data/mysql/base/20190422_082018 --incremental-dir=/data/mysql/inc/inc2
 ```
-打包数据,并复制到从节点
+###### 3、打包数据,并复制到从节点
 ```shell
 # tar cvf xtrabackup_base.tar /data/mysql/base/20190422_082018
 # scp xtrabackup_base.tar node2:/data/mysql/
 ```
-###### 3、还原数据 从库node2
+###### 4、还原数据 从库node2
 **notice ： 数据库服务保证关闭，/var/lib/mysql目录为空**
 ```shell
 # 还原数据
