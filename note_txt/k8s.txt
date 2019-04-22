@@ -1,0 +1,751 @@
+kubernetes
+master/agent
+master主机:
+	*kube-apiserver
+	*kube-scheduler
+	*kube-controller-manager
+	docker
+	etcd
+	cloud-controller-manager
+agent主机（node）：
+	kubelet
+	docker
+	kube-proxy
+	container runtime
+addons
+	dns
+	web UI(Dashboard)
+	container resource monitoring
+	cluster-level logging
+	
+Pod  一组容器
+Labels 用于标识pods的标签，对相同标签的pod进行管理
+Kubelet 容器代理
+kube-proxy pods的负载均衡
+etcd 元数据服务
+cAdvisor 提供资源使用/性能统计
+Replication Controller 管理PODS副本
+Scheduler 在工作节点调度pods
+API Server Kubernetes API server
+
+Kubernetes是容器集群管理系统，是一个开源的平台，可以实现容器集群的自动化部署、自动扩缩容、维护等功能。
+可以在物理或虚拟机的Kubernetes集群上运行容器化应用，Kubernetes能提供一个以“容器为中心的基础架构”，满足在生产环境中运行应用的一些常见需求。
+通过Kubernetes可以：
+    快速部署应用
+    快速扩展应用
+    无缝对接新的应用功能
+    节省资源，优化硬件资源的使用
+Kubernetes 特点
+    可移植: 支持公有云，私有云，混合云，多重云（multi-cloud）
+    可扩展: 模块化, 插件化, 可挂载, 可组合
+    自动化: 自动部署，自动重启，自动复制，自动伸缩/扩展
+
+
+
+Master组件
+1、master组件提供集群的管理控制中心。可以在集群中任何节点上运行
+2、kube-apiserver:用于暴露kubernetes API，任何的资源请求/调用操作都是通过其提供的接口进行的。
+3、etcd:是kubernetes提供默认的存储系统，保存所有集群数据，使用时需要为etcd数据提供备份计划
+4、kube-controller-manager：运行管理控制器，是集群中处理常规任务的后台线程。逻辑上，每个控制器是一个单独的进程，但为了降低复杂性，他们都被编译成单个二进制文件，并在单进程中运行kube-controller-manager：运行管理控制器，是集群中处理常规任务的后台线程。逻辑上，每个控制器是一个单独的进程，但为了降低复杂性，他们都被编译成单个二进制文件，并在单进程中运行
+   控制器包括：
+       1、节点控制器NODE
+	   2、副本（replication）控制器：负责维护系统中每个副本中的pod
+	   3、端点（endpoint）控制器：填充endpoint对象（即连接service&pods）
+	   4、service account和token控制器：为新的namespace创建默认账户访问API TOKEN
+5、cloud-controller-manager:云控制器负责与底层云提供商的平台交互
+	具体功能：
+		节点（Node）控制器
+		路由（Route）控制器
+		Service控制器
+		卷（Volume）控制器 
+6、kube-scheduler：监视新创建没有分配到node的pod，为pod选择一个node
+
+节点（node）组件
+节点组件运行在node，提供kubernetes运行时环境，以及维护pod
+1、kubelet：是主要的节点代理会监视已分配给节点的pod
+	具体功能：
+		安装pod所需volume
+		下载pod的secrets
+		pod中运行的docker容器
+		定期执行容器健康检查
+		Reports the status of the pod back to the rest of the system, by creating a mirror pod if necessary.
+		Reports the status of the node back to the rest of the system.
+2、kube-proxy：通过在主机上维护网络规则并执行连接转发来实现kubernetes服务抽象
+3、docker：用于运行容器
+   RKT：运行容器，作为docker工具替代方案
+4、supervisd：轻量级的监控系统，用于保障kubelet和docker的与运行
+5、fluentd：守护进程，可提供cluster-level logging
+
+
+basic Kubernetes objects include 
+		Pod
+		Service
+		Namespace
+		Volume
+k8s cluster 容器编排系统
+	核心任务：容器编排
+	容器：应用程序
+	pod controller，deployment
+	
+用户和pod之间通过service衔接 service可以对pod进行反代调度，可以提供负载均衡	
+
+网络
+service网络
+pod网络
+节点网络
+
+---------------------------------------------------------------------------------
+k8s安装部署
+centos7.5
+master 192.168.47.141
+node1  192.168.47.142
+node2  192.168.47.143
+
+docker-ce 18.09.3
+kubectl-1.13.4-0.x86_64
+kubeadm-1.13.4-0.x86_64
+kubectl-1.13.4-0.x86_64
+
+一、
+ssh互信
+ntpd时间同步
+hosts域名解析
+关闭firewall和selinux
+禁用swap  临时禁用命令swapoff -a  永久禁用在fstab文件中编辑
+
+配置yum仓库
+aliyun的kubernetes库和docker-ce库
+cat base.repo
+[base-aliyun]
+name=aliyun base
+baseurl=https://mirrors.aliyun.com/centos/7/os/x86_64/
+gpgcheck=0
+[updates]
+name=aliyun updates
+baseurl=https://mirrors.aliyun.com/centos/7/updates/x86_64/
+gpgcheck=0
+[extras]
+name=aliyun extrax
+baseurl=https://mirrors.aliyun.com/centos/7/extras/x86_64/
+gpgcheck=0
+
+cat epel.repo
+[epel]
+name=epel-aliyun
+baseurl=https://mirrors.aliyun.com/epel/7/x86_64/
+gpgcheck=0
+enabled=1
+
+cat docker-ce.repo
+[docker-ce]
+name=docker-ce
+baseurl=https://mirrors.aliyun.com/docker-ce/linux/centos/7/x86_64/stable/
+gpgcheck=0
+enabled=1
+
+cat kubernetes.repo
+[k8s]
+name=k8s
+baseurl=https://mirrors.aliyun.com/kubernetes/yum/repos/kubernetes-el7-x86_64/
+gpgcheck=0
+enabled=1
+
+二、三节点安装相关程序包
+yum install docker-ce -y
+yum install kubelet kubeadm kubectl -y
+
+三、在各节点启动docker服务
+若要通过默认的k8s.gcr.io镜象获取kubernetes系统组件的相关镜象，需要配置docker.service的Unit file中的Environment变量，为其定义合适的HTTPS_PROXY,格式如下
+	Environment="HTTPS_PROXY=http://www.ik8s.io:10070"
+	Environment="NO_PROXY=192.168.0.0/16,127.0.0.0/8"
+	ExecStartPost=/usr/sbin/iptables -P FORWARD ACCEPT
+
+
+重载完成后启动docker服务
+systemctl daemon-reload
+systemctl start docker
+systemctl enable docker
+   	
+[root@k8s-master ~]# sysctl -a | grep bridge
+net.bridge.bridge-nf-call-ip6tables = 1
+net.bridge.bridge-nf-call-iptables = 1
+
+vim /etc/sysctl.conf
+net.bridge.bridge-nf-call-ip6tables = 1
+net.bridge.bridge-nf-call-iptables = 1
+
+# sysctl -p
+net.bridge.bridge-nf-call-ip6tables = 1
+net.bridge.bridge-nf-call-iptables = 1
+
+四、初始化主节点master
+systemctl enable kubelet
+systemctl start kubelet
+1、若未禁用Swap设备，则需要编辑kubelet的配置文件，设置其忽略swap启用的状态错误，内容如下：
+[root@k8s-master ~]# vim /etc/sysconfig/kubelet
+KUBELET_EXTRA_ARGS="--fail-swap-on=false"
+
+可选步骤：在运行初始化命令之前先运行如下命令单独获取相关镜象文件，而后再运行后面的kubeadm init命令，以便于观察到镜象文件的下载过程
+# kubeadm config images pull
+然后即可进行master节点的初始化操作。
+
+主节点镜像
+[root@k8s-master ~]# kubeadm config images list
+k8s.gcr.io/kube-apiserver:v1.13.4
+k8s.gcr.io/kube-controller-manager:v1.13.4
+k8s.gcr.io/kube-scheduler:v1.13.4
+k8s.gcr.io/kube-proxy:v1.13.4
+k8s.gcr.io/pause:3.1
+k8s.gcr.io/etcd:3.2.24
+k8s.gcr.io/coredns:1.2.6
+[root@k8s-master ~]# kubeadm config images pull
+[config/images] Pulled k8s.gcr.io/kube-apiserver:v1.13.4
+[config/images] Pulled k8s.gcr.io/kube-controller-manager:v1.13.4
+[config/images] Pulled k8s.gcr.io/kube-scheduler:v1.13.4
+[config/images] Pulled k8s.gcr.io/kube-proxy:v1.13.4
+[config/images] Pulled k8s.gcr.io/pause:3.1
+[config/images] Pulled k8s.gcr.io/etcd:3.2.24
+[config/images] Pulled k8s.gcr.io/coredns:1.2.6
+[root@k8s-master ~]# docker image ls
+REPOSITORY                           TAG                 IMAGE ID            CREATED             SIZE
+k8s.gcr.io/kube-proxy                v1.13.4             fadcc5d2b066        8 days ago          80.3MB
+k8s.gcr.io/kube-controller-manager   v1.13.4             40a817357014        8 days ago          146MB
+k8s.gcr.io/kube-scheduler            v1.13.4             dd862b749309        8 days ago          79.6MB
+k8s.gcr.io/kube-apiserver            v1.13.4             fc3801f0fc54        8 days ago          181MB
+quay.io/coreos/flannel               v0.11.0-amd64       ff281650a721        5 weeks ago         52.6MB
+k8s.gcr.io/coredns                   1.2.6               f59dcacceff4        4 months ago        40MB
+k8s.gcr.io/etcd                      3.2.24              3cab8e1b9802        5 months ago        220MB
+k8s.gcr.io/pause                     3.1                 da86e6ba6ca1        14 months ago       742kB
+
+
+kubeadm init命令支持两种初始化方式：
+	1、通过命令行选项传递关键的部署设定
+	2、基于yaml格式的专用配置文件，允许用户自定义各个部署参数
+
+2、初始化
+[root@k8s-master ~]# kubeadm init --kubernetes-version="v1.13.4" --pod-network-cidr="10.244.0.0/16"	
+Your Kubernetes master has initialized successfully!
+
+To start using your cluster, you need to run the following as a regular user:
+
+  mkdir -p $HOME/.kube
+  sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+  sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+You should now deploy a pod network to the cluster.
+Run "kubectl apply -f [podnetwork].yaml" with one of the options listed at:
+  https://kubernetes.io/docs/concepts/cluster-administration/addons/
+
+You can now join any number of machines by running the following on each node
+as root:
+
+    kubeadm join 192.168.47.141:6443 --token oy6au7.jm9jxdk3zbeuzhan --discovery-token-ca-cert-hash sha256:5821ac17bbc0834300d7981e36eeaa240e20d9dbf64ac37e2ba54863f1e3aeba
+
+[root@k8s-master ~]# mkdir .kube
+[root@k8s-master ~]# cp /etc/kubernetes/admin.conf .kube/config
+
+查看节点kubectl get node
+[root@k8s-master ~]# kubectl get node
+NAME         STATUS     ROLES    AGE   VERSION
+k8s-master   NotReady   master   26m   v1.13.4
+
+
+3、安装部署pod网络   flannel
+kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+[root@k8s-master ~]# kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+podsecuritypolicy.extensions/psp.flannel.unprivileged created
+clusterrole.rbac.authorization.k8s.io/flannel created
+clusterrolebinding.rbac.authorization.k8s.io/flannel created
+serviceaccount/flannel created
+configmap/kube-flannel-cfg created
+daemonset.extensions/kube-flannel-ds-amd64 created
+daemonset.extensions/kube-flannel-ds-arm64 created
+daemonset.extensions/kube-flannel-ds-arm created
+daemonset.extensions/kube-flannel-ds-ppc64le created
+daemonset.extensions/kube-flannel-ds-s390x created
+
+查看节点kubectl get node
+[root@k8s-master ~]# kubectl get node
+NAME         STATUS   ROLES    AGE     VERSION
+k8s-master   Ready    master   3m53s   v1.13.4
+
+
+查看pods状态
+[root@k8s-master ~]# kubectl get pods -n kube-system
+NAME                                 READY   STATUS    RESTARTS   AGE
+coredns-86c58d9df4-gmf9n             1/1     Running   0          34m
+coredns-86c58d9df4-h9qbx             1/1     Running   0          34m
+etcd-k8s-master                      1/1     Running   0          34m
+kube-apiserver-k8s-master            1/1     Running   0          34m
+kube-controller-manager-k8s-master   1/1     Running   0          34m
+kube-flannel-ds-amd64-4qgps          1/1     Running   0          4m32s
+kube-proxy-gh2cb                     1/1     Running   0          34m
+kube-scheduler-k8s-master            1/1     Running   0          34m
+
+[root@k8s-master ~]# kubectl get nodes
+NAME         STATUS   ROLES    AGE   VERSION
+k8s-master   Ready    master   36m   v1.13.4
+
+
+添加节点：
+在各node节点运行
+#   kubeadm join 192.168.47.141:6443 --token oy6au7.jm9jxdk3zbeuzhan --discovery-token-ca-cert-hash sha256:5821ac17bbc0834300d7981e36eeaa240e20d9dbf64ac37e2ba54863f1e3aeba
+
+没有禁用swap时  kubeadm join 192.168.47.141:6443 --token oy6au7.jm9jxdk3zbeuzhan --discovery-token-ca-cert-hash sha256:5821ac17bbc0834300d7981e36eeaa240e20d9dbf64ac37e2ba54863f1e3aeba --ignore-preflight-errors=swap
+
+输出部分信息如下：
+ This node has joined the cluster:
+* Certificate signing request was sent to apiserver and a response was received.
+* The Kubelet was informed of the new secure connection details.
+Run 'kubectl get nodes' on the master to see this node join the cluster. 
+
+node节点docker镜像
+# docker image ls
+REPOSITORY               TAG                 IMAGE ID            CREATED             SIZE
+k8s.gcr.io/kube-proxy    v1.13.4             fadcc5d2b066        8 days ago          80.3MB
+quay.io/coreos/flannel   v0.11.0-amd64       ff281650a721        5 weeks ago         52.6MB
+k8s.gcr.io/pause         3.1                 da86e6ba6ca1        14 months ago       742kB
+
+
+此时在主节点查看node信息
+[root@k8s-master ~]# kubectl get nodes
+NAME         STATUS   ROLES    AGE     VERSION
+k8s-master   Ready    master   56m     v1.13.4
+k8s-node1    Ready    <none>   7m56s   v1.13.4
+k8s-node2    Ready    <none>   7m42s   v1.13.4
+
+获取节点的详细信息
+# kubectl describe node k8s-node1
+------------------------------------------------------------------------------------------
+如何解决从k8s.gcr.io拉取镜像失败问题
+解决方案
+docker.io仓库对google的容器做了镜像，可以通过下列命令下拉取相关镜像：
+
+docker pull mirrorgooglecontainers/kube-apiserver-amd64:v1.11.3
+docker pull mirrorgooglecontainers/kube-controller-manager-amd64:v1.11.3
+docker pull mirrorgooglecontainers/kube-scheduler-amd64:v1.11.3
+docker pull mirrorgooglecontainers/kube-proxy-amd64:v1.11.3
+docker pull mirrorgooglecontainers/pause:3.1
+docker pull mirrorgooglecontainers/etcd-amd64:3.2.18
+docker pull coredns/coredns:1.1.3
+版本信息需要根据实际情况进行相应的修改。通过docker tag命令来修改镜像的标签：
+
+docker tag docker.io/mirrorgooglecontainers/kube-proxy-amd64:v1.11.3 k8s.gcr.io/kube-proxy-amd64:v1.11.3
+docker tag docker.io/mirrorgooglecontainers/kube-scheduler-amd64:v1.11.3 k8s.gcr.io/kube-scheduler-amd64:v1.11.3
+docker tag docker.io/mirrorgooglecontainers/kube-apiserver-amd64:v1.11.3 k8s.gcr.io/kube-apiserver-amd64:v1.11.3
+docker tag docker.io/mirrorgooglecontainers/kube-controller-manager-amd64:v1.11.3 k8s.gcr.io/kube-controller-manager-amd64:v1.11.3
+docker tag docker.io/mirrorgooglecontainers/etcd-amd64:3.2.18  k8s.gcr.io/etcd-amd64:3.2.18
+docker tag docker.io/mirrorgooglecontainers/pause:3.1  k8s.gcr.io/pause:3.1
+docker tag docker.io/coredns/coredns:1.1.3  k8s.gcr.io/coredns:1.1.3
+使用docker rmi删除不用镜像，通过docker images命令显示，已经有我们需要的镜像文件，可以继续部署工作了：
+
+[root@zookeeper01 jinguang1]# docker images
+REPOSITORY                                                               TAG                 IMAGE ID            CREATED             SIZE
+k8s.gcr.io/kube-proxy-amd64                                              v1.11.3             be5a6e1ecfa6        10 days ago         97.8 MB
+k8s.gcr.io/kube-scheduler-amd64                                          v1.11.3             ca1f38854f74        10 days ago         56.8 MB
+k8s.gcr.io/kube-apiserver-amd64                                          v1.11.3             3de571b6587b        10 days ago         187 MB
+coredns/coredns                                                          1.1.3               b3b94275d97c        3 months ago        45.6 MB
+k8s.gcr.io/coredns                                                       1.1.3               b3b94275d97c        3 months ago        45.6 MB
+k8s.gcr.io/etcd-amd64                                                    3.2.18              b8df3b177be2        5 months ago        219 MB
+k8s.gcr.io/pause                                                         3.1                 da86e6ba6ca1        9 months ago        742 kB
+------------------------------------------------------------------------------------------
+
+添加dashboard
+kubectl create -f https://raw.githubusercontent.com/kubernetes/dashboard/v1.10.1/src/deploy/recommended/kubernetes-dashboard.yaml
+删除
+kubectl delete -f https://raw.githubusercontent.com/kubernetes/dashboard/v1.10.1/src/deploy/recommended/kubernetes-dashboard.yaml
+
+
+
+
+
+列出指定命名的pod
+# kubectl get pods -n kube-system
+
+查看指定pod resource的详细信息
+ kubectl describe pod [POD_NAME] -n kube-system 
+
+删除指定pod resource的详细信息
+ kubectl delete pod [POD_NAME] -n kube-system  
+
+查看指定pod resource的日志文件
+ kubectl logs [POD_NAME] -n kube-system 
+
+kubectl get po # 查看目前所有的pod
+kubectl get rs # 查看目前所有的replica set
+kubectl get deployment # 查看目前所有的deployment
+
+
+# kubectl label pods myapp-rc-9xmxs -n test-ns newlabel=hello 给指定pod添加label
+# kubectl label pods myapp-rc-9xmxs -n test-ns newlabel=world --overwrite 更新指定pod的指定label
+# kubectl label pod myapp-rc-9xmxs -n test-ns newlabel- 删除指定pod的指定label
+# kubectl get pod -n test-ns --show-labels  获取指定pod信息，以显示label的形式
+
+
+k8s删除资源状态一直是Terminating。此为背景。
+解决方法：
+   可使用kubectl中的强制删除命令
+    # 删除POD
+    kubectl delete pod PODNAME --force --grace-period=0
+    # 删除NAMESPACE
+    kubectl delete namespace NAMESPACENAME --force --grace-period=0
+	
+安装kubernetes-dashboard	
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v1.10.1/src/deploy/recommended/kubernetes-dashboard.yaml
+
+# kubectl get svc -n kube-system
+NAME                   TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)         AGE
+kube-dns               ClusterIP   10.96.0.10       <none>        53/UDP,53/TCP   6h7m
+kubernetes-dashboard   ClusterIP   10.103.109.218   <none>        443/TCP         7m26s
+
+# kubectl patch svc kubernetes-dashboard -p '{"spec":{"type":"NodePort"}}' -n kube-system
+service/kubernetes-dashboard patched
+
+# kubectl get svc -n kube-system
+NAME                   TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)         AGE
+kube-dns               ClusterIP   10.96.0.10       <none>        53/UDP,53/TCP   6h13m
+kubernetes-dashboard   NodePort    10.103.109.218   <none>        443:32646/TCP   14m
+
+
+
+部署nginx
+cat nginx.yml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+  labels:
+     app: nginx
+spec:
+     containers:
+        - name: nginx
+          image: nginx
+          imagePullPolicy: IfNotPresent
+          ports:
+          - containerPort: 80
+          volumeMounts:
+          - mountPath: /usr/share/nginx/html/
+            name: web-data
+     restartPolicy: Always
+     volumes:
+     - name: web-data
+       hostPath:
+         path: /data/webdata
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service
+spec:
+  type: NodePort
+  sessionAffinity: ClientIP
+  selector:
+    app: nginx
+  ports:
+    - port: 80
+      nodePort: 30080
+
+kubectl apply -f nginx.yml
+创建了一个名为nginx的pod，把宿主机/data/webdata挂载到容器中/usr/share/nginx/html/下
+
+进入容器的bash
+kubectl exec nginx -it bash
+
+获取资源api资源类型
+kubectl api-resources
+
+获取资源api版本
+kubectl api-versions
+[root@k8s-master ~]# kubectl api-versions
+admissionregistration.k8s.io/v1beta1
+apiextensions.k8s.io/v1beta1
+apiregistration.k8s.io/v1
+apiregistration.k8s.io/v1beta1
+apps/v1
+apps/v1beta1
+apps/v1beta2
+authentication.k8s.io/v1
+authentication.k8s.io/v1beta1
+authorization.k8s.io/v1
+authorization.k8s.io/v1beta1
+autoscaling/v1
+autoscaling/v2beta1
+autoscaling/v2beta2
+batch/v1
+batch/v1beta1
+certificates.k8s.io/v1beta1
+coordination.k8s.io/v1beta1
+events.k8s.io/v1beta1
+extensions/v1beta1
+networking.k8s.io/v1
+policy/v1beta1
+rbac.authorization.k8s.io/v1
+rbac.authorization.k8s.io/v1beta1
+scheduling.k8s.io/v1beta1
+storage.k8s.io/v1
+storage.k8s.io/v1beta1
+v1
+--------------------------------------------------------------------------------
+1、
+创建一个名为nginx-test的deployment，使用的镜像是nginx:latest
+# kubectl create deployment nginx-test --image=nginx:latest
+
+[root@k8s-master ~]# kubectl get all
+NAME                              READY   STATUS    RESTARTS   AGE
+pod/nginx-test-6bc94865df-vscnv   1/1     Running   0          2m30s
+NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+service/kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   42h
+NAME                         READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/nginx-test   1/1     1            1           2m30s
+NAME                                    DESIRED   CURRENT   READY   AGE
+replicaset.apps/nginx-test-6bc94865df   1         1         1       2m30s
+
+查看创建的pod的信息
+[root@k8s-master ~]# kubectl get pod -o wide
+NAME                          READY   STATUS    RESTARTS   AGE     IP           NODE        NOMINATED NODE   READINESS GATES
+nginx-test-6bc94865df-vscnv   1/1     Running   0          3m37s   10.244.2.6   k8s-node2   <none>           <none>
+通过ip 10.244.2.6 可以访问nginx web资源
+
+2、clusterip service 
+创建一个cluster service关联nginx-test deployment的clusterip service 并将其80端口和pod的80端口作映射
+# kubectl create service clusterip nginx-test --tcp=80:80
+
+[root@k8s-master ~]# kubectl get svc nginx-test -o wide
+NAME         TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)   AGE     SELECTOR
+nginx-test   ClusterIP   10.103.214.69   <none>        80/TCP    2m32s   app=nginx-test
+
+yaml格式输出nginx-test service的信息
+[root@k8s-master ~]# kubectl get svc nginx-test -o yaml
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: "2019-03-11T11:38:46Z"
+  labels:
+    app: nginx-test
+  name: nginx-test
+  namespace: default
+  resourceVersion: "93967"
+  selfLink: /api/v1/namespaces/default/services/nginx-test
+  uid: 3b12817e-43f2-11e9-aa7d-000c299777e4
+spec:
+  clusterIP: 10.103.214.69
+  ports:
+  - name: 80-80
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: nginx-test
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}
+
+通过describe获取service信息
+[root@k8s-master ~]# kubectl describe service nginx-test
+Name:              nginx-test
+Namespace:         default
+Labels:            app=nginx-test
+Annotations:       <none>
+Selector:          app=nginx-test
+Type:              ClusterIP
+IP:                10.103.214.69
+Port:              80-80  80/TCP
+TargetPort:        80/TCP
+Endpoints:         10.244.2.6:80
+Session Affinity:  None
+Events:            <none>
+
+通过10.103.214.69  可以访问nginx web资源
+
+3、nodeport service
+删除上面创建的名为nginx-test的clusterip service，创建一个名为nginx-test的nodeport service并将其 80端口和pod 80端口作映射关联
+[root@k8s-master ~]# kubectl get svc nginx-test -o wide
+NAME         TYPE       CLUSTER-IP      EXTERNAL-IP   PORT(S)        AGE     SELECTOR
+nginx-test   NodePort   10.111.66.176   <none>        80:31274/TCP   2m17s   app=nginx-test
+
+[root@k8s-master ~]# kubectl describe svc nginx-test
+Name:                     nginx-test
+Namespace:                default
+Labels:                   app=nginx-test
+Annotations:              <none>
+Selector:                 app=nginx-test
+Type:                     NodePort
+IP:                       10.111.66.176
+Port:                     80-80  80/TCP
+TargetPort:               80/TCP
+NodePort:                 80-80  31274/TCP
+Endpoints:                10.244.1.12:80,10.244.2.6:80
+Session Affinity:         None
+External Traffic Policy:  Cluster
+Events:                   <none>
+通过节点IP:31274可以访问nginx web资源
+
+4、
+对deployment进行扩容 
+# kubectl scale --replicas=2 deployment nginx-test
+
+扩容至2个
+[root@k8s-master ~]# kubectl get pods
+NAME                          READY   STATUS    RESTARTS   AGE
+nginx-test-6bc94865df-tnz85   1/1     Running   0          74s
+nginx-test-6bc94865df-vscnv   1/1     Running   0          32m
+
+查看service信息 
+[root@k8s-master ~]# kubectl describe svc nginx-test
+Name:              nginx-test
+Namespace:         default
+Labels:            app=nginx-test
+Annotations:       <none>
+Selector:          app=nginx-test
+Type:              ClusterIP
+IP:                10.103.214.69
+Port:              80-80  80/TCP
+TargetPort:        80/TCP
+Endpoints:         10.244.1.12:80,10.244.2.6:80
+Session Affinity:  None
+Events:            <none>	  
+-------------------------------------------------------------------
+查询资源定义
+This command describes the fields associated with each supported API resource
+# kubectl explain RESOURCE [options]
+
+# yaml格式的pod定义文件完整内容：
+apiVersion: v1        　　#必选，版本号，例如v1
+kind: Pod       　　　　　　#必选，Pod
+metadata:       　　　　　　#必选，元数据
+  name: string        　　#必选，Pod名称
+  namespace: string     　　#必选，Pod所属的命名空间
+  labels:       　　　　　　#自定义标签
+    - name: string      　#自定义标签名字
+  annotations:        　　#自定义注释列表
+    - name: string
+spec:         　　　　　　　#必选，Pod中容器的详细定义
+  containers:       　　　　#必选，Pod中容器列表
+  - name: string      　　#必选，容器名称
+    image: string     　　#必选，容器的镜像名称
+    imagePullPolicy: [Always | Never | IfNotPresent]  #获取镜像的策略 Alawys表示下载镜像 IfnotPresent表示优先使用本地镜像，否则下载镜像，Nerver表示仅使用本地镜像
+    command: [string]     　　#容器的启动命令列表，如不指定，使用打包时使用的启动命令
+    args: [string]      　　 #容器的启动命令参数列表
+    workingDir: string      #容器的工作目录
+    volumeMounts:     　　　　#挂载到容器内部的存储卷配置
+    - name: string      　　　#引用pod定义的共享存储卷的名称，需用volumes[]部分定义的的卷名
+      mountPath: string     #存储卷在容器内mount的绝对路径，应少于512字符
+      readOnly: boolean     #是否为只读模式
+    ports:        　　　　　　#需要暴露的端口库号列表
+    - name: string      　　　#端口号名称
+      containerPort: int    #容器需要监听的端口号
+      hostPort: int     　　 #容器所在主机需要监听的端口号，默认与Container相同
+      protocol: string      #端口协议，支持TCP和UDP，默认TCP
+    env:        　　　　　　#容器运行前需设置的环境变量列表
+    - name: string      　　#环境变量名称
+      value: string     　　#环境变量的值
+    resources:        　　#资源限制和请求的设置
+      limits:       　　　　#资源限制的设置
+        cpu: string     　　#Cpu的限制，单位为core数，将用于docker run --cpu-shares参数
+        memory: string      #内存限制，单位可以为Mib/Gib，将用于docker run --memory参数
+      requests:       　　#资源请求的设置
+        cpu: string     　　#Cpu请求，容器启动的初始可用数量
+        memory: string      #内存清楚，容器启动的初始可用数量
+    livenessProbe:      　　#对Pod内个容器健康检查的设置，当探测无响应几次后将自动重启该容器，检查方法有exec、httpGet和tcpSocket，对一个容器只需设置其中一种方法即可
+      exec:       　　　　　　#对Pod容器内检查方式设置为exec方式
+        command: [string]   #exec方式需要制定的命令或脚本
+      httpGet:        　　　　#对Pod内个容器健康检查方法设置为HttpGet，需要制定Path、port
+        path: string
+        port: number
+        host: string
+        scheme: string
+        HttpHeaders:
+        - name: string
+          value: string
+      tcpSocket:      　　　　　　#对Pod内个容器健康检查方式设置为tcpSocket方式
+         port: number
+       initialDelaySeconds: 0   #容器启动完成后首次探测的时间，单位为秒
+       timeoutSeconds: 0    　　#对容器健康检查探测等待响应的超时时间，单位秒，默认1秒
+       periodSeconds: 0     　　#对容器监控检查的定期探测时间设置，单位秒，默认10秒一次
+       successThreshold: 0
+       failureThreshold: 0
+       securityContext:
+         privileged: false
+    restartPolicy: [Always | Never | OnFailure] #Pod的重启策略，Always表示一旦不管以何种方式终止运行，kubelet都将重启，OnFailure表示只有Pod以非0退出码退出才重启，Nerver表示不再重启该Pod
+    nodeSelector: obeject   　　#设置NodeSelector表示将该Pod调度到包含这个label的node上，以key：value的格式指定
+    imagePullSecrets:     　　　　#Pull镜像时使用的secret名称，以key：secretkey格式指定
+    - name: string
+    hostNetwork: false      　　#是否使用主机网络模式，默认为false，如果设置为true，表示使用宿主机网络
+    volumes:        　　　　　　#在该pod上定义共享存储卷列表
+    - name: string     　　 　　#共享存储卷名称 （volumes类型有很多种）
+      emptyDir: {}      　　　　#类型为emtyDir的存储卷，与Pod同生命周期的一个临时目录。为空值
+      hostPath: string      　　#类型为hostPath的存储卷，表示挂载Pod所在宿主机的目录
+        path: string      　　#Pod所在宿主机的目录，将被用于同期中mount的目录
+      secret:       　　　　　　#类型为secret的存储卷，挂载集群与定义的secre对象到容器内部
+        scretname: string  
+        items:     
+        - key: string
+          path: string
+      configMap:      　　　　#类型为configMap的存储卷，挂载预定义的configMap对象到容器内部
+        name: string
+        items:
+        - key: string
+          path: string    
+
+example 1：
+# cat rc-test.yml
+---
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: myapp-rc
+  namespace: test-ns
+spec:
+  replicas: 2
+  selector:
+    app: myapp-rc
+  template:
+    metadata:
+      labels:
+        app: myapp-rc
+    spec:
+      containers:
+      - name: myapp-rc
+        image: ikubernetes/myapp:v7
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: myapp-rc
+  namespace: test-ns
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: myapp-rc
+创建ReplicationController和与之关联的service serivce类型是clusterip  namespace:test-ns label:myapp-rc
+# kubectl create -f rc-test.yaml
+
+# kubectl get pod -n test-ns -o wide
+NAME             READY   STATUS    RESTARTS   AGE   IP            NODE        NOMINATED NODE   READINESS GATES
+myapp-rc-9xmxs   1/1     Running   0          64m   10.244.2.12   k8s-node2   <none>           <none>
+myapp-rc-trnp4   1/1     Running   0          64m   10.244.1.18   k8s-node1   <none>           <none>
+
+# kubectl get svc -n test-ns -o wide
+NAME       TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)   AGE   SELECTOR
+myapp-rc   ClusterIP   10.109.183.48   <none>        80/TCP    58m   app=myapp-rc
+
+# kubectl describe svc myapp-rc -n test-ns
+Name:              myapp-rc
+Namespace:         test-ns
+Labels:            <none>
+Annotations:       kubectl.kubernetes.io/last-applied-configuration:
+{"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"name":"myapp-rc","namespace":"test-ns"},"spec":{"ports":[{"port":80,"pro...
+Selector:          app=myapp-rc
+Type:              ClusterIP
+IP:                10.109.183.48
+Port:              <unset>  80/TCP
+TargetPort:        80/TCP
+Endpoints:         10.244.1.18:80,10.244.2.12:80
+Session Affinity:  None
+Events:            <none>	  

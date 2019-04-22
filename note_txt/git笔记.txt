@@ -1,0 +1,289 @@
+https://git-scm.com/book/zh/v2
+
+Git的三种重要模式，分别是已提交、已修改和已暂存：
+    已提交(committed):表示数据文件已经顺利提交到Git数据库中。
+    已修改(modified):表示数据文件已经被修改，但未被保存到Git数据库中
+    已暂存(staged):表示数据文件已经被修改，并会在下次提交时提交到Git数据库中。
+	
+三个工作区域的概念：Git 仓库、工作目录以及暂存区域。
+	1、Git 仓库目录是 Git 用来保存项目的元数据和对象数据库的地方。 这是 Git 中最重要的部分，从其它计算机克隆仓库时，拷贝的就是这里的数据。
+	2、工作目录是对项目的某个版本独立提取出来的内容。 这些从 Git 仓库的压缩数据库中提取出来的文件，放在磁盘上供你使用或修改。
+	3、暂存区域是一个文件，保存了下次将提交的文件列表信息，一般在 Git 仓库目录中。 有时候也被称作‘索引’，不过一般说法还是叫暂存区域。
+
+基本流程为：
+    1.在工作目录中修改数据文件。
+    2.将文件的快照放入暂存区域。
+    3.将暂存区域的文件快照提交到Git仓库
+	
+
+安装
+yum install -y git
+
+全局配置 用户名和邮箱
+# git config --global user.name "weijuwei"       
+# git config --global user.email "583112952@qq.com"
+
+设置默认文本编辑器
+# git config --global core.editor vim
+
+# git config --list
+user.name=weijuwei
+user.email=583112952@qq.com
+core.editor=vim	
+
+创建目录，并将目录初始化成git的工作目录
+# mkdir mygit
+# cd mygit
+
+# git init 
+Initialized empty Git repository in /root/mygit/.git/
+
+目录结构
+# tree -a
+.
+└── .git
+    ├── branches
+    ├── config
+    ├── description
+    ├── HEAD
+    ├── hooks
+    │   ├── applypatch-msg.sample
+    │   ├── commit-msg.sample
+    │   ├── post-update.sample
+    │   ├── pre-applypatch.sample
+    │   ├── pre-commit.sample
+    │   ├── prepare-commit-msg.sample
+    │   ├── pre-push.sample
+    │   ├── pre-rebase.sample
+    │   └── update.sample
+    ├── info
+    │   └── exclude
+    ├── objects
+    │   ├── info
+    │   └── pack
+    └── refs
+        ├── heads
+        └── tags
+
+--------------------------------------------------------------------------
+简单使用：
+1、新建文件
+echo test > test.txt
+
+2、添加到暂存区
+git add test.txt
+查看状态
+# git status 
+# On branch master
+#
+# Initial commit
+#
+# Changes to be committed:
+#   (use "git rm --cached <file>..." to unstage)
+#
+#       new file:   test.txt
+#
+
+3、提交数据
+git commit -m "create test.txt"
+再次查看状态
+# git status 
+# On branch master
+nothing to commit, working directory clean
+
+------------------------------------------------------------------
+常用操作：
+git add <file>添加暂存文件
+git rm <file> 删除工作目录的文件，以及索引中的映射
+git rm --cached <file> 只删除暂存的文件信息
+git mv <file_old> <file_new> 可以重命名文件或目录
+git tag <tag_name>添加标签tag
+git tag -d <tag_name> 删除指定tag
+git checkout <tag> 检出指定的tag
+git checkout <branch>切换分支
+git commit 提交数据到本地库
+
+git cat-file -p <id>
+
+git checkout -b <new_branch_name>创建并切换到新分支
+git branch <branch_name> 创建分支
+git branch -d <branch_name> 删除指定分支
+git push origin -d <branch_name> 删除远程指定分支
+git merge <branch_name> 合并分支
+git branch -r -D origin/BranchName 删除本地的远程分支
+
+git diff 比较暂存区索引和工作目录；
+git diff --cached 比较本地库和暂存区索引的不同
+git diff HEAD 比较本地库对象和工作目录的不同
+
+
+
+------------------------------------------------------------------
+git pull命令用于从另一个存储库或本地分支获取并集成(整合)。git pull命令的作用是：取回远程主机某个分支的更新，再与本地的指定分支合并，它的完整格式稍稍有点复杂。默认模式下，git pull是git fetch后跟git merge FETCH_HEAD的缩写。
+
+git fetch和git pull的区别
+    git fetch：相当于是从远程获取最新版本到本地，不会自动合并。
+$ git fetch origin master
+$ git log -p master..origin/master
+$ git merge origin/master
+
+以上命令的含义：
+
+    首先从远程的origin的master主分支下载最新的版本到origin/master分支上
+    然后比较本地的master分支和origin/master分支的差别
+    最后进行合并
+
+上述过程其实可以用以下更清晰的方式来进行：
+$ git fetch origin master:tmp
+$ git diff tmp 
+$ git merge tmp
+
+2. git pull：相当于是从远程获取最新版本并merge到本地
+git pull origin master
+
+上述命令其实相当于git fetch 和 git merge
+在实际使用中，git fetch更安全一些，因为在merge前，我们可以查看更新情况，然后再决定是否合并。
+
+------------------------------------------------------------------
+撤销操作
+git commit --amend
+
+eg:
+[root@lab1 mygit]# ll
+total 8
+-rw-r--r--. 1 root root 21 Jan 22 15:30 README.md
+-rw-r--r--. 1 root root 31 Jan 22 15:30 test.txt
+
+# echo amend >> README.md 
+# echo amemd >> test.txt 
+
+# git add test.txt
+# git commit -m "test amend"
+忘记add添加README.md文件
+撤销之前提交操作，再添加忘添加的文件到暂存区，重新提交
+# git commit --amend  
+# git add README.md
+# git commit --amend
+
+--------------------------------------------------------------------
+git reset：撤消此前的操作； 
+	--soft：将HEAD引用指向给定的提交，但不影响索引（缓存区）和工作目录；
+	--mixed：将HEAD引用指向给定的提交，并将索引（缓存区）内容改变为指定提交的快照；但不改变工作目录；
+	--hard：将HEAD引用指向给定的提交、将索引（缓存区）内容改变为指定提交的快照，并改变工作目录中的内容反映指定提交的内容；
+
+
+
+取消暂存文件 尚未提交commit，然后可以重新添加add
+git reset HEAD <file>
+git reset -- <file>
+
+删除暂存区文件,而本地保留
+git rm --cached <file>
+
+eg:
+[root@lab1 mygit]# echo "测试取消暂存的文件" >> test.txt 
+[root@lab1 mygit]# echo "测试取消暂存的文件" >> 
+.git/      README.md  test.txt   
+[root@lab1 mygit]# echo "测试取消暂存的文件" >> README.md 
+[root@lab1 mygit]# git add *
+[root@lab1 mygit]# git status 
+# On branch master
+# Changes to be committed:
+#   (use "git reset HEAD <file>..." to unstage)
+#
+#       modified:   README.md
+#       modified:   test.txt
+#
+[root@lab1 mygit]# # git reset HEAD test.txt
+Unstaged changes after reset:
+M       test.txt
+[root@lab1 mygit]# git status 
+# On branch master
+# Changes to be committed:
+#   (use "git reset HEAD <file>..." to unstage)
+#
+#       modified:   README.md
+#
+# Changes not staged for commit:
+#   (use "git add <file>..." to update what will be committed)
+#   (use "git checkout -- <file>..." to discard changes in working directory)
+#
+#       modified:   test.txt
+#
+[root@lab1 mygit]#
+
+------------------------------------------------------------------
+撤销在工作目录对文件的修改，
+git checkout -- <file>
+
+# git checkout -- test.txt
+------------------------------------------------------------------
+忽略文件
+
+在目录下创建一个名为 .gitignore 的文件，列出要忽略的文件模式
+
+文件 .gitignore 的格式规范如下：
+    所有空行或者以 ＃ 开头的行都会被 Git 忽略。
+    可以使用标准的 glob 模式匹配。
+    匹配模式可以以(/)开头防止递归。
+    匹配模式可以以(/)结尾指定目录。
+    要忽略指定模式以外的文件或目录，可以在模式前加上惊叹号(!)取反。
+
+所谓的 glob 模式是指 shell 所使用的简化了的正则表达式。 星号(*)匹配零个或多个任意字符；[abc]匹配任何一个列在方括号中的字符(这个例子要么匹配一个字符 a，要么匹配一个字符 b，要么匹配一个字符 c)；问号(?)只匹配一个任意字符；如果在方括号中使用短划线分隔两个字符，表示所有在这两个字符范围内的都可以匹配(比如 [0-9] 表示匹配所有 0 到 9 的数字)。 使用两个星号(*) 表示匹配任意中间目录，比如a/**/z 可以匹配 a/z, a/b/z 或 a/b/c/z等。
+举例：
+# cat .gitignore 
+*.tmp
+忽略tmp后缀的文件
+----------------------------------------------------------------------------
+
+查看提交历史记录
+git log
+# git log
+commit b2245a659545983828349b31ab7ff8c836deb025
+Author: weijuwei <583112952@qq.com>
+Date:   Mon Jan 21 20:08:17 2019 +0800
+
+    create test.txt
+
+每行显示一条提交记录
+# git log --pretty=oneline
+b2245a659545983828349b31ab7ff8c836deb025 create test.txt
+
+# 图形化显示日志信息 分支合并图
+git log --graph --pretty=oneline --abbrev-commit
+
+-------------------------------------------------------------------------
+
+远程仓库 github
+1、生成ssh-keygen -t rsa
+2、登陆GitHub官网添加生成的id_rsa.pub
+3、关联远程库
+    https：
+    git remote add origin https://github.com/weijuwei/test2.git
+	或
+	ssh:
+    git remote add origin git@github.com:weijuwei/test2.git
+	添加后，远程库的名字就是origin，这是Git默认的叫法，也可以改成其它
+4、将本地库的内容推送到远程 git push命令
+    git push -u origin master  第一次推送master分支的所有内容
+    之后，可以使用 git push origin master推送
+	
+	
+	报错：
+	 ! [rejected]        master -> master (non-fast-forward)
+error: failed to push some refs to 'https://github.com/weijuwei/test2.git'
+hint: Updates were rejected because the tip of your current branch is behind
+hint: its remote counterpart. Merge the remote changes (e.g. 'git pull')
+hint: before pushing again.
+hint: See the 'Note about fast-forwards' in 'git push --help' for details.
+  简单暴力解决 git push -f 
+  
+  
+查看确认远程分支列表  
+ git remote -v
+
+获取远程库与本地同步合并
+git pull --rebase origin master
+ 
+克隆库
+  git clone https://github.com/weijuwei/test2.git  
