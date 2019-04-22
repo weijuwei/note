@@ -25,7 +25,7 @@
              --backup \
              --target-dir=/data/mysql/inc/inc1 \
              --incremental-basedir=/data/mysql/base/full
-生成 /data/mysql/inc/inc1
+# 生成 /data/mysql/inc/inc1
 
 # 修改数据库2
 
@@ -36,7 +36,7 @@
              --backup \
              --target-dir=/data/mysql/inc/inc2 \
              --incremental-basedir=/data/mysql/inc/inc1
-生成 /data/mysql/inc/inc2
+# 生成 /data/mysql/inc/inc2
 ```
 ###### 2、还原准备
 ```shell
