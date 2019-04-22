@@ -1,63 +1,63 @@
-#### ¼ò½é
-  Í¨¹ýxtrabackup±¸·Ý£¨ÔöÁ¿±¸·ÝÊµÑé£©£¬×öÖ÷´ÓÍ¬²½¸´ÖÆÊµÑé
-#### »·¾³
-- ÏµÍ³ CentOS 7.5
-- node1 192.168.56.3 Ö÷
-- node2 192.168.56.4 ´Ó
+#### ç®€ä»‹
+  é€šè¿‡xtrabackupå¤‡ä»½ï¼ˆå¢žé‡å¤‡ä»½å®žéªŒï¼‰ï¼Œåšä¸»ä»ŽåŒæ­¥å¤åˆ¶å®žéªŒ
+#### çŽ¯å¢ƒ
+- ç³»ç»Ÿ CentOS 7.5
+- node1 192.168.56.3 ä¸»
+- node2 192.168.56.4 ä»Ž
 
-#### Ò»¡¢Êý¾Ý±¸·Ý»¹Ô­½×¶Î
-##### ÔöÁ¿±¸·Ý»¹Ô­
-###### 1¡¢±¸·Ý Ö÷¿â node1
+#### ä¸€ã€æ•°æ®å¤‡ä»½è¿˜åŽŸé˜¶æ®µ
+##### å¢žé‡å¤‡ä»½è¿˜åŽŸ
+###### 1ã€å¤‡ä»½ ä¸»åº“ node1
 ```shell
-# È«±¸·Ý
+# å…¨å¤‡ä»½
 # xtrabackup --defaults-file=/etc/my.cnf --user=root --password=123456 --backup --target-dir=/data/mysql/base/full
-Éú³É /data/mysql/base/full
+ç”Ÿæˆ /data/mysql/base/full
 
-# ÐÞ¸ÄÊý¾Ý¿â1
+# ä¿®æ”¹æ•°æ®åº“1
 
-# µÚÒ»´ÎÔöÁ¿±¸·Ý
+# ç¬¬ä¸€æ¬¡å¢žé‡å¤‡ä»½
 # xtrabackup --defaults-file=/etc/my.cnf --user=root --password=123456 --backup --target-dir=/data/mysql/inc/inc1 --incremental-basedir=/data/mysql/base/full
-Éú³É /data/mysql/inc/inc1
+ç”Ÿæˆ /data/mysql/inc/inc1
 
-# ÐÞ¸ÄÊý¾Ý¿â2
+# ä¿®æ”¹æ•°æ®åº“2
 
-# µÚ¶þ´ÎÔöÁ¿±¸·Ý ÔÚinc1µÄ»ù´¡ÉÏ
+# ç¬¬äºŒæ¬¡å¢žé‡å¤‡ä»½ åœ¨inc1çš„åŸºç¡€ä¸Š
 # xtrabackup --defaults-file=/etc/my.cnf --user=root --password=123456 --backup --target-dir=/data/mysql/inc/inc2 --incremental-basedir=/data/mysql/inc/inc1
-Éú³É /data/mysql/inc/inc2
+ç”Ÿæˆ /data/mysql/inc/inc2
 ```
-###### 2¡¢»¹Ô­×¼±¸
+###### 2ã€è¿˜åŽŸå‡†å¤‡
 ```shell
-# »¹Ô­×¼±¸½×¶Î
+# è¿˜åŽŸå‡†å¤‡é˜¶æ®µ
 # xtrabackup --prepare --apply-log-only --target-dir=/data/mysql/base/full
 # xtrabackup --prepare --apply-log-only --target-dir=/data/mysql/base/full --incremental-dir=/data/mysql/inc/inc1
 # xtrabackup --prepare --apply-log-only --target-dir=/data/mysql/base/full --incremental-dir=/data/mysql/inc/inc2
 ```
-###### 3¡¢´ò°üÊý¾Ý,²¢¸´ÖÆµ½´Ó½Úµã
+###### 3ã€æ‰“åŒ…æ•°æ®,å¹¶å¤åˆ¶åˆ°ä»ŽèŠ‚ç‚¹
 ```shell
 # tar cvf xtrabackup_base.tar /data/mysql/base/full
 # scp xtrabackup_base.tar node2:/data/mysql/
 ```
-###### 4¡¢»¹Ô­Êý¾Ý ´Ó¿ânode2
-**notice £º Êý¾Ý¿â·þÎñ±£Ö¤¹Ø±Õ£¬/var/lib/mysqlÄ¿Â¼Îª¿Õ**
+###### 4ã€è¿˜åŽŸæ•°æ® ä»Žåº“node2
+**notice ï¼š æ•°æ®åº“æœåŠ¡ä¿è¯å…³é—­ï¼Œ/var/lib/mysqlç›®å½•ä¸ºç©º**
 ```shell
-# »¹Ô­Êý¾Ý
+# è¿˜åŽŸæ•°æ®
 # tar xf xtrabackup_base.tar
 # xtrabackup --user=root --password=123456 --copy-back --target-dir=/data/mysql/full
 
-# ÐÞ¸ÄÈ¨ÏÞ
+# ä¿®æ”¹æƒé™
 # chown -R mysql.mysql /var/lib/mysql/
 
-# Æô¶¯·þÎñ
+# å¯åŠ¨æœåŠ¡
 # systemctl start mariadb
 
-# ¼ÇÂ¼ÈÕÖ¾µã£¬ºóÃæ×öÖ÷´ÓÊ¹ÓÃ
+# è®°å½•æ—¥å¿—ç‚¹ï¼ŒåŽé¢åšä¸»ä»Žä½¿ç”¨
 # cat xtrabackup_binlog_pos_innodb 
 ./mysql-bin.000002	761
 ```
-#### ¶þ¡¢Ö÷´ÓÍ¬²½¸´ÖÆ½×¶Î
-##### 1¡¢Ö÷´Ó¿âÅäÖÃÎÄ¼þ
+#### äºŒã€ä¸»ä»ŽåŒæ­¥å¤åˆ¶é˜¶æ®µ
+##### 1ã€ä¸»ä»Žåº“é…ç½®æ–‡ä»¶
 ```shell
-# Ö÷¿âÅäÖÃÎÄ¼þ
+# ä¸»åº“é…ç½®æ–‡ä»¶
 # cat /etc/my.cnf
 [mysqld]
 datadir=/var/lib/mysql
@@ -68,7 +68,7 @@ log-bin=mysql-bin
 binlog_format=mixed
 server-id       = 1
 
-# ´Ó¿âÅäÖÃÎÄ¼þ
+# ä»Žåº“é…ç½®æ–‡ä»¶
 # cat /etc/my.cnf
 [mysqld]
 datadir=/var/lib/mysql
@@ -80,22 +80,22 @@ log-bin=mysql-bin
 binlog_format=mixed
 server-id       = 2
 ```
-##### 2¡¢Ö÷¿â´´½¨slaveÍ¬²½user  node1
+##### 2ã€ä¸»åº“åˆ›å»ºslaveåŒæ­¥user  node1
 ```shell
 mysql> grant replication slave,reload,super on *.* to repluser@192.168.56.* identified by 'centos';
 mysql> FLUSH PRIVILEGES;
 ```
-##### 3¡¢´Ó¿âÆô¶¯slave
+##### 3ã€ä»Žåº“å¯åŠ¨slave
 ```shell
-# ÈÕÖ¾¼ÇÂ¼Î»ÖÃ
+# æ—¥å¿—è®°å½•ä½ç½®
 # cat xtrabackup_binlog_pos_innodb 
 ./mysql-bin.000002	761
 
-# Ö´ÐÐslave
+# æ‰§è¡Œslave
 mysql> change master to master_host='192.168.56.3',master_user='repluser',master_password='centos',master_log_file='mysql-bin.000002',master_log_pos=761;
 mysql> start slave;
 
-# ²é¿´
+# æŸ¥çœ‹
 mysql> show slave status\G
 *************************** 1. row ***************************
                Slave_IO_State: Waiting for master to send event
