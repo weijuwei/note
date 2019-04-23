@@ -133,3 +133,25 @@ mysql> show slave status\G
              Slave_IO_Running: Yes
             Slave_SQL_Running: Yes
 ```
+#### 三、半同步复制
+
+```shell
+# ON MASTER
+mysql> INSTALL SONAME 'semisync_master';
+msyql> SET GLOBAL rpl_semi_sync_master_enabled=1;
+
+# ON SLAVE
+mysql> INSTALL SONAME 'semisync_slave';
+mysql> SET GLOBAL rpl_semi_sync_slave_enabled=1; 
+
+mysql> STOP SLAVE IO_THREAD;
+mysql> START SLAVE IO_THREAD;
+
+# 卸载
+# ON MASTER
+mysql> UNINSTALL SONAME 'semisync_master';
+# ON SLAVE
+mysql> UNINSTALL SONAME 'semisync_slave';
+# 重启slave IO_THREAD线程
+
+```
