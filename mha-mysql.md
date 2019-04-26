@@ -1,4 +1,4 @@
-#### MHA 实现Mariadb主从自动切换
+#### MHA 实现Mariadb一主多从切换
 
 ##### MHA简介
 
