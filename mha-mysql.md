@@ -177,7 +177,7 @@ Fri Apr 26 11:11:39 2019 - [debug]   ok.
 Fri Apr 26 11:11:40 2019 - [info] All SSH connection tests passed successfully.
 ```
 
-##### 7、检查mysql replication健康状态     masterha_check_repl命令
+###### 7、检查mysql replication健康状态     masterha_check_repl命令
 
 ```shell
 [root@lab mha]# masterha_check_repl --conf=/etc/mha/mha.cnf 
@@ -197,7 +197,7 @@ Fri Apr 26 11:39:29 2019 - [info] Got exit code 0 (Not master dead).
 MySQL Replication Health is OK.
 ```
 
-##### 8、启动mha manger    masterha_manager 命令
+###### 8、启动mha manger    masterha_manager 命令
 
 ```shell
 [root@lab mha]# masterha_manager --conf=/etc/mha/mha.cnf
@@ -211,7 +211,7 @@ mha (pid:20122) is running(0:PING_OK), master:192.168.56.3
 
 ```
 
-##### 9、模拟测试
+###### 9、模拟测试
 
 在192.168.56.3上执行,停止mariadb服务
 
