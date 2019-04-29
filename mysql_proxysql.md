@@ -33,6 +33,41 @@ MySQL [(none)]> show databases;
 | 4   | monitor       |                                     |
 | 5   | stats_history | /var/lib/proxysql/proxysql_stats.db |
 +-----+---------------+-------------------------------------+
+# main 内存配置数据库，表里存放后端db实例、用户验证、路由规则等信息。表名以runtime_开头的表示proxysql当前运行的配置内容，不能通过dml语句修改，只能修改对应的不以 runtime_开头的（在内存）里的表，然后LOAD 使其生效， SAVE 使其存到硬盘以供下次重启加载。
+# disk 是持久化到硬盘的配置，sqlite数据文件。
+# stats 是proxysql运行抓取的统计信息，包括到后端各命令的执行次数、流量、processlist、查询种类汇总/执行时间等等。
+# monitor 库存储 monitor模块收集的信息，主要是对后端db的健康/延迟检查。
+
+
+
+# 查看main中表
+MySQL [(none)]> show tables from main;
++--------------------------------------------+
+| tables                                     |
++--------------------------------------------+
+| global_variables                           |
+| mysql_collations                           |
+| mysql_galera_hostgroups                    |
+| mysql_group_replication_hostgroups         |
+| mysql_query_rules                          |
+| mysql_query_rules_fast_routing             |
+| mysql_replication_hostgroups               |
+| mysql_servers                              |
+| mysql_users                                |
+| proxysql_servers                           |
+| runtime_checksums_values                   |
+| runtime_global_variables                   |
+| runtime_mysql_galera_hostgroups            |
+| runtime_mysql_group_replication_hostgroups |
+| runtime_mysql_query_rules                  |
+| runtime_mysql_query_rules_fast_routing     |
+| runtime_mysql_replication_hostgroups       |
+| runtime_mysql_servers                      |
+| runtime_mysql_users                        |
+| runtime_proxysql_servers                   |
+| runtime_scheduler                          |
+| scheduler                                  |
++--------------------------------------------+
 
 # 添加后端mysql主机 指定hostgroup_id 主节点是100 从节点是1000
 insert into mysql_servers(hostgroup_id,hostname,port,weight,max_connections,max_replication_lag,comment) values(100,'192.168.56.3',3306,1,1000,10,'test my proxysql');
