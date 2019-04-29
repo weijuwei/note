@@ -132,8 +132,11 @@ Reader进程
     if (Rcount == 0)  // 如果是第一个读者，需要进行判断是否有写者
       WriteMutex -> P();
     ++Rcount;
+    CountMutex -> V();
+    
     read;
     
+    CountMutex -> P();
     --Rcount
     if (Rcount == 0)  // 如果是最后一个读者，需要进行判断是否有写者正在等待
       WriteMutex -> V();
