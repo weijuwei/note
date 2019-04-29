@@ -1,5 +1,11 @@
 #### 通过proxysql的cli配置mysql读写分离
 
+前提是主从已经配置完成，此实验紧接着mha-mysql实验（mha-mysql.md）
+
+- 192.168.56.3 master
+- 192.168.56.4 slave （mha中的备用主）
+- 192.168.56.100 slave
+
 ```shell
 # 安装生成的文件
 [root@lab ~]# rpm -ql proxysql
@@ -38,8 +44,6 @@ MySQL [(none)]> show databases;
 # stats 是proxysql运行抓取的统计信息，包括到后端各命令的执行次数、流量、processlist、查询种类汇总/执行时间等等。
 # monitor 库存储 monitor模块收集的信息，主要是对后端db的健康/延迟检查。
 
-
-
 # 查看main中表
 MySQL [(none)]> show tables from main;
 +--------------------------------------------+
@@ -76,7 +80,16 @@ insert into mysql_servers(hostgroup_id,hostname,port,weight,max_connections,max_
 
 insert into mysql_servers(hostgroup_id,hostname,port,weight,max_connections,max_replication_lag,comment) values(1000,'192.168.56.100',3306,1,1000,10,'test my proxysql');
 
+# 查询后端主机
 select * from mysql_servers;
+MySQL [(none)]> select hostgroup_id,hostname,status,weight from mysql_servers;
++--------------+----------------+--------+--------+
+| hostgroup_id | hostname       | status | weight |
++--------------+----------------+--------+--------+
+| 100          | 192.168.56.3   | ONLINE | 1      |
+| 1000         | 192.168.56.4   | ONLINE | 1      |
+| 1000         | 192.168.56.100 | ONLINE | 1      |
++--------------+----------------+--------+--------+
 
 # 添加可以访问后端主机的账号
 insert into mysql_users(username,password,active,default_hostgroup,transaction_persistent) values('proxysql','proxysql',1,100,1);
@@ -106,5 +119,21 @@ save mysql query rules to disk;
 
 # 查询规则
 select rule_id,active,match_pattern,destination_hostgroup,apply from runtime_mysql_query_rules;
++---------+--------+----------------------+-----------------------+-------+
+| rule_id | active | match_pattern        | destination_hostgroup | apply |
++---------+--------+----------------------+-----------------------+-------+
+| 1       | 1      | ^SELECT.*FOR UPDATE$ | 100                   | 1     |
+| 2       | 1      | ^SELECT              | 1000                  | 1     |
++---------+--------+----------------------+-----------------------+-------+
+
+# 查看统计信息 观察读操作调度到HG1000 写操作调度到HG100
+MySQL [(none)]> select hostgroup,schemaname,username,substr(digest_text,120,-120) from stats_mysql_query_digest;
++-----------+--------------------+----------+--------------------------------+
+| hostgroup | schemaname         | username | substr(digest_text,120,-120)   |
++-----------+--------------------+----------+--------------------------------+
+| 1000      | information_schema | proxysql | select * from hellodb.students |
+| 1000      | information_schema | proxysql | SELECT DATABASE()              |
+| 100       | information_schema | proxysql | drop database proxysql         |
++-----------+--------------------+----------+--------------------------------+
 ```
 
