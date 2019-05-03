@@ -1,0 +1,90 @@
+Bios：写入到主板上的一个程序，计算机开机时主动执行的第一个程序。
+MBR：硬盘内第一个扇区的主引导分区块，大小为446bytes，内含引导加载程序（Boot loader）
+引导加载程序（Boot loader）：操作系统安装在MBR上面的软件，可读取并执行内核文件的软件，其主要功能有：1.提供菜单 2.载入内核文件 3.将引导加载程序交给其他loader负责
+引导扇区（Boot sector）：安装操作系统时安装的启动分区
+
+开机管理程序可以指定使用哪个核心文件来开机，并实际载入核心到内存当中解压缩与执行，此时核心就能够开始在内存内活动，并侦测所有硬件信息与载入适当的驱动程序来使整部主机开始运行， 等到核心侦测硬件与载入驱动程序完毕后，系统就开始运行了，
+
+1. 载入 BIOS 的硬件信息与进行自我测试，并依据设置取得第一个可开机的设备；
+2. 读取并执行第一个开机设备内 MBR 的 boot Loader （亦即是 grub2, spfdisk 等程序）；
+3. 依据 boot loader 的设置载入 Kernel ，Kernel 会开始侦测硬件与载入驱动程序；
+4. 在硬件驱动成功后，Kernel 会主动调用 systemd 程序，并以 default.target 流程开机；
+systemd 执行 sysinit.target 初始化系统及 basic.target 准备操作系统；
+systemd 启动 multi-user.target 下的本机与服务器服务；
+systemd 执行 multi-user.target 下的 /etc/rc.d/rc.local 文件；
+systemd 执行 multi-user.target 下的 getty.target 及登陆服务；
+systemd 执行 graphical 需要的服务
+
+Linux 将 boot loader 的程序码执行与设置值载入分成两个阶段（stage） 来执行：
+Stage 1：执行 boot loader 主程序： 第一阶段为执行 boot loader 的主程序，这个主程序必须要被安装在开机区，亦即是 MBR 或者是 boot sector 。但如前所述，因为 MBR 实在太小了，所以，MBR 或 boot sector 通常仅安装 boot loader 的最小主程序， 并没有安装 loader 的相关配置文件a；因此阶段 1 的唯一功能就是定位并加载阶段 1.5 的代码。
+2）阶段1.5（stage1.5）：
+阶段1.5 的代码必须位于引导记录与设备第一个分区之间的位置。该空间由于历史上的技术原因而空闲。第一个分区的开始位置在扇区 63 和 MBR（扇区 0）之间遗留下 62 个 512 字节的扇区（共 31744 字节），该区域用于存储阶段 1.5 的代码镜像 core.img 文件。 
+因为有更大的存储空间用于阶段 1.5，这意味着 GRUB2 的阶段 2 能够放在标准的 EXT 文件系统，阶段 1.5 的功能是开始执行存放阶段 2 文件的 /boot 文件系统的驱动程序，并加载相关的驱动程序。
+
+Stage 2：主程序载入配置文件： 第二阶段为通过 boot loader 载入所有配置文件与相关的环境参数文件 （包括文件系统定义与主要配置文件 grub.cfg）， 一般来说，配置文件都在 /boot 下面。
+
+
+Kernel内核初始化
+Kerenl在得到系统控制权之后，首先要进行自身初始化，载入并运行vmlinuz，initrd,initramfs等。
+(1)探测可识别到的所有硬件设备；
+(2)加载硬件驱动程序，即加载真正的根文件系统所在设备的驱动程序（有可能会借助于ramdisk加载驱动）；
+(3)以只读方式挂载根文件系统；如果有借助于ramdisk这个临时文件系统（虚根），则在这一步之后会执行根切换；否则不执行根切换。
+(4)运行用户空间的第一个应用程序
+
+
+boot loader 可以载入 kernel 与 initramfs ，然后在内存中让 initramfs 解压缩成为根目录， kernel 就能够借此载入适当的驱动程序，最终释放虚拟文件系统，并挂载实际的根目录文件系统，就能够开始后续的正常开机流程
+
+载入核心侦测硬件与 initramfs 的功能当我们借由 boot loader 管理而开始读取核心文件后，接下来， Linux 就会将核心解压缩到内存当中， 并且利用核心的功能，开始测试与驱动各个周边设备，包括储存设备、CPU、网卡、声卡等等。 此时 Linux 核心会以自己的功能重新侦测一次硬件，，核心此时才开始接管 BIOS 后的工作了
+
+虚拟文件系统 （Initial RAM Disk 或 Initial RAM Filesystem） 一般使用的文件名为/boot/initrd 或 /boot/initramfs ，这个文件的特色是，他也能够通过 boot loader 来载入到内存中，然后这个文件会被解压缩并且在内存当中虚拟一个根文件系统， 为在内存当中的文件系统能够提供一支可执行的程序，通过该程序来载入开机过程中所最需要的核心模块， 通常这些模块就是 USB, RAID, LVM, SCSI 等文件系统与磁盘接口的驱动程序，等载入完成后， 会帮助核心重新调用 systemd 来开始后续的正常开机流程。
+提供开机过程中所需要的最重要核心模块，以让系统开机过程可以顺利完成。 
+会需要 initramfs 的原因，是因为核心模块放置于 /lib/modules/$（uname -r）/kernel/ 当中， 这些模块必须要根目录 （/） 被挂载时才能够被读取。但是如果核心本身不具备磁盘的驱动程序时， 当然无法挂载根目录，也就没有办法取得驱动程序，因此造成两难的地步。initramfs 可以将 /lib/modules/.... 内的“开机过程当中一定需要的模块”包成一个文件 （文件名就是 initramfs）， 然后在开机时通过主机的 INT 13 硬件功能将该文件读出来解压缩，并且initramfs 在内存内会仿真成为根目录， 由于此虚拟文件系统 （Initial RAM Disk） 主要包含磁盘与文件系统的模块，因此我们的核心最后就能够认识实际的磁盘， 那就能够进行实际根目录的挂载啦！所以说：“initramfs 内所包含的模块大多是与开机过程有关，而主要以文件系统及硬盘模块 （如 usb, SCSI 等） 为主”
+
+在核心载入完毕、进行完硬件侦测与驱动程序载入后，此时你的主机硬件应该已经准备就绪了 （ready） ， 此时核心会主动的调用第一支程序，那就是 systemd，systemd 的 PID 号码是一
+systemd 最主要的功能就是准备软件执行的环境，包括系统的主机名称、网络设置、语系处理、文件系统格式及其他服务的启动等。 而所有的动作都会通过 systemd 的默认启动服务集合，亦即是/etc/systemd/system/default.target 来规划。
+
+
+
+
+CentOS7的启动流程
+
+uefi或BIOS初始化，开始开机自检
+这个过程是开机后，BIOS或UEFI进行硬件检查的阶段。
+
+加载mbr到内存
+自检硬件没有问题时候，这里以BIOS为例，BIOS将会直接找硬盘的第一个扇区，找到前446字节，将MBR加载到内存中，MBR将告诉程序下一阶段去哪里找系统的grub引导。此阶段属于grub第一阶段。grub还有1.5阶段和2阶段。
+
+GRUB的阶段
+第1阶段：执行 boot loader 主程序
+grub第1.5和第2阶段，信息默认存放在扇区中，如果使用grub-install生成的第2阶段的文件是存放在/boot分区中的。
+为了加载内核系统，不得不加载/boot分区，而加载/boot分区，要有/boot分区的驱动，/boot分区驱动是放在/boot分区中的啊，我们好像进入死循环了，Linux是怎么解决的呢？就是靠放在1.5阶段中的数据，放在第一个扇区后的后续扇区中，第1.5阶段和2阶段总共27个扇区。
+第1.5阶段：mbr之后的扇区，识别stage2所在的分区上的文件系统。
+第2阶段：开机启动的时候看到Grub选项、信息，还有修改GRUB背景等功能都是stage2提供的，stage2会去读入/boot/grub/grub.conf或者menu.lst等配置文件。
+
+加载内核和inintamfs模块
+加载内核，核心开始解压，启动一些最核心的程序。
+为了让内核足够的轻小，硬件驱动并没放在内核文件里面
+
+kernel内核开始初始化，用systemd来代替centos6以前的init程序
+先执行initrd.target 包括挂载/etc/fstab文件中系统，挂载之后，就可以切换到根目录了。
+从initramfs根文件系统切换到磁盘的根目录
+systemd执行默认target配置
+
+centos7表面有“运行级别”这个概念，实际是为了兼容以前的系统，每个所谓“运行级别”都有对应的软连接指向，默认的启动级别/etc/systemd/system/default.target，根据它的指向可以找到系统要进入到哪个模式。
+
+模式：
+    0 ==> runlevel0.target, poweroff.target
+    1 ==> runlevel1.target, rescue.target
+    2 ==> runlevel2.target, multi-user.target
+    3 ==> runlevel3.target, multi-user.target
+    4 ==> runlevel4.target, multi-user.target
+    5 ==> runlevel5.target, graphical.target
+    6 ==> runlevel6.target, reboot.target
+
+    systemd执行sysinit.target
+    systemd启动multi-user.target下的本机与服务器服务
+    systemd执行multi-user.target下面的/etc/rc.d/rc.local
+Systemd执行multi-user.target下的getty.target及登录服务
+getty.target我们也眼熟，它是启动终端的systemd对象。如果到此步骤，系统没有指定启动图形桌面，到此就可以结束了，如果需要启动图形界面，要在此基础上启动桌面程序。
+systemd执行graphical图形化需要的服务
+至此系统启动完成，可以正常使用。
