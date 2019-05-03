@@ -23,6 +23,15 @@ Stage 1：执行 boot loader 主程序： 第一阶段为执行 boot loader 的主程序，这个主程
 
 Stage 2：主程序载入配置文件： 第二阶段为通过 boot loader 载入所有配置文件与相关的环境参数文件 （包括文件系统定义与主要配置文件 grub.cfg）， 一般来说，配置文件都在 /boot 下面。
 
+```
+MBR(Master Boot Record)，主引导记录，MBR存储于磁盘的头部，大小为512bytes，其中，446bytes用于存储BootLoader程序，64bytes用于存储分区表信息，最后2bytes用于MBR的有效性检查。
+ 
+GRUB(Grand Unified Bootloader)，多系统启动程序，其执行过程可分为三个步骤：
+Stage1：这个其实就是MBR，它的主要工作就是查找并加载第二段Bootloader程序(stage2)，但系统在没启动时，MBR根本找不到文件系统，也就找不到stage2所存放的位置，因此，就有了stage1_5
+Stage1_5：该步骤就是为了识别文件系统
+Stage2：GRUB程序会根据/boot/grub/grub.conf文件查找Kernel的信息，然后开始加载Kernel程序，当Kernel程序被检测并在加载到内存中，GRUB就将控制权交接给了Kernel程序。
+PS：实际上这个步骤/boot还没被挂载，GRUB直接识别grub所在磁盘的文件系统，所以实际上应该是/grub/grub.conf文件
+```
 
 Kernel内核初始化
 Kerenl在得到系统控制权之后，首先要进行自身初始化，载入并运行vmlinuz，initrd,initramfs等。
