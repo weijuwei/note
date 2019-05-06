@@ -129,9 +129,9 @@ Write进程
 
 Reader进程
     CountMutex -> P();
-    if (Rcount == 0)  // 如果是第一个读者，需要进行判断是否有写者
-      WriteMutex -> P();
     ++Rcount;
+    if (Rcount == 1)  // 如果是第一个读者，需要进行判断是否有写者
+      WriteMutex -> P();
     CountMutex -> V();
     
     read;
@@ -158,7 +158,7 @@ Reader进程
   - 资源信号量fullBuffers（缓冲填充数量）  --> 消费者
   - 资源信号量emptyBuffers（缓冲空闲数量） --> 生产者
 ###### 信号量实现生产者-消费者问题
-```
+```c#
 Class BoundedBuffer{
     mutex = new Semaphore(1);
     fullBuffers = new Semaphore(0);
@@ -204,7 +204,7 @@ Class BoundedBuffer::Remove(c){
   - 将等待队列中的一个线程唤醒
   - 如果等待队列为空，则等同空操作
 - 实现
-```
+```c#
 Class Conditon{
     int numWaiting = 0;
     WaitQueue = q;
@@ -225,7 +225,7 @@ Conditon::Signal(){
 }
 ```
 ##### 管程实现生产者-消费者问题
-```
+```c#
 class BounderdBuffer{
     Lock lock;
     int count = 0;  //写入缓冲区的数目
@@ -251,12 +251,15 @@ class BounderBuffer::Remove(c){
 }
 ```
 ##### 管程实现读者-写者问题
-```
+```c#
+# 写者优先
 # 两个基本方法
 Database::Read(){  // 读者
     Wait until no writers;
+    StartRead();
     read database;
     check out - wake up waiting writers;
+    DoneRead();
 }
 Database::Write(){  // 写者
     Wait until no reader/writers;
@@ -271,5 +274,24 @@ WW = 0;   // 正在等待的写者
 Lock lock; // 管程互斥锁
 Condition okToRead;  // 可读条件
 Condition okToWrite; // 可写条件
+
+Private Database::StartRead(){  // 读操作执行前
+	lock.Acquire();
+	while((AW+WW)>0){  // 判断是否有写者
+		WR++;
+		okToRead.wait(&lock);
+		WR--；  //
+	}
+	AR++;  // 活动读者加1
+	lock.Release();
+}
+Private Database::DoneRead(){  // 读操作完成后
+	lock.Acquire();
+	AR--;
+	while(AR==0&&WW>0){  // 最后一个读者 和有写者等待时 唤醒写者操作
+		okToWrite.signal()
+	}	
+	lock.Release();
+}
 ```
 
