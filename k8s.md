@@ -288,27 +288,27 @@ coredns/coredns                                                          1.1.3  
 k8s.gcr.io/coredns                                                       1.1.3               b3b94275d97c        3 months ago        45.6 MB
 k8s.gcr.io/etcd-amd64                                                    3.2.18              b8df3b177be2        5 months ago        219 MB
 
-## k8s.gcr.io/pause                                                         3.1                 da86e6ba6ca1        9 months ago        742 kB
+k8s.gcr.io/pause                                                         3.1                 da86e6ba6ca1        9 months ago        742 kB
 ```
 
 一些命令
 
 ```shell
-列出指定命名的pod
+#列出指定命名的pod
 kubectl get pods -n kube-system
-查看指定pod resource的详细信息
- kubectl describe pod [POD_NAME] -n kube-system 
-删除指定pod resource的详细信息
- kubectl delete pod [POD_NAME] -n kube-system  
-查看指定pod resource的日志文件
- kubectl logs [POD_NAME] -n kube-system 
+#查看指定pod resource的详细信息
+kubectl describe pod [POD_NAME] -n kube-system 
+#删除指定pod resource的详细信息
+kubectl delete pod [POD_NAME] -n kube-system  
+#查看指定pod resource的日志文件
+kubectl logs [POD_NAME] -n kube-system 
 kubectl get po # 查看目前所有的pod
 kubectl get rs # 查看目前所有的replica set
 kubectl get deployment # 查看目前所有的deployment
-kubectl label pods myapp-rc-9xmxs -n test-ns newlabel=hello 给指定pod添加label
-kubectl label pods myapp-rc-9xmxs -n test-ns newlabel=world --overwrite 更新指定pod的指定label
-kubectl label pod myapp-rc-9xmxs -n test-ns newlabel- 删除指定pod的指定label
-kubectl get pod -n test-ns --show-labels  获取指定pod信息，以显示label的形式
+kubectl label pods myapp-rc-9xmxs -n test-ns newlabel=hello # 给指定pod添加label
+kubectl label pods myapp-rc-9xmxs -n test-ns newlabel=world --overwrite #更新指定pod的指定label
+kubectl label pod myapp-rc-9xmxs -n test-ns newlabel #删除指定pod的指定label
+kubectl get pod -n test-ns --show-labels  #获取指定pod信息，以显示label的形式
 ```
 
 k8s删除资源状态一直是Terminating。此为背景。
@@ -347,16 +347,15 @@ NAME                   TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)       
 kube-dns               ClusterIP   10.96.0.10       <none>        53/UDP,53/TCP   6h13m
 kubernetes-dashboard   NodePort    10.103.109.218   <none>        443:32646/TCP   14m
 
-创建管理用户 并获取其token的方法
-创建admin-user.yaml文件，内容如下
+#创建管理用户 并获取其token的方法
+#创建admin-user.yaml文件，内容如下
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   labels:
     k8s-app: kubernetes-dashboard
   name: admin
-
-##   namespace: kube-system
+  namespace: kube-system
 
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -372,11 +371,11 @@ subjects:
   name: admin
   namespace: kube-system
  
- 执行：kubectl create -f admin-user.yaml
+ # 执行：kubectl create -f admin-user.yaml
 
- kubectl get secret -n kube-system列出账户信息
+ kubectl get secret -n kube-system #列出账户信息
 
-##  kubectl describe secret admin-token-[xxxxxxxx] -n kube-system取得登陆token
+kubectl describe secret admin-token-[xxxxxxxx] -n kube-system #取得登陆token
 ```
 
 二、
@@ -399,7 +398,7 @@ subjects:
   namespace: kube-system
 ```
 
-========================================================================================================================
+=======================================================================================
 
 部署nginx
 cat nginx.yml
@@ -492,8 +491,6 @@ rbac.authorization.k8s.io/v1beta1
 scheduling.k8s.io/v1beta1
 storage.k8s.io/v1
 storage.k8s.io/v1beta1
-
-## v1
 ```
 
 1、创建一个名为nginx-test的deployment，使用的镜像是nginx:latest
