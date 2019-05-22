@@ -17,6 +17,19 @@ hosts域名解析
 关闭firewall和selinux
 禁用swap  临时禁用命令swapoff -a  永久禁用在fstab文件中编辑
 
+加载ipvs内核模块
+
+```shell
+#!/bin/bash
+ipvs_mods_dir="/usr/lib/modules/$(uname -r)/kernel/net/netfilter/ipvs"
+for i in $(ls $ipvs_mods_dir | grep -o "^[^.]*"); do
+    /sbin/modinfo -F filename $i  &> /dev/null
+    if [ $? -eq 0 ]; then
+        /sbin/modprobe $i
+    fi
+done
+```
+
 配置yum仓库
 
 ```shell
