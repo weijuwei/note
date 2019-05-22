@@ -70,7 +70,7 @@ Description : A highly-available key value store for shared configuration.
 #数据存储位置
 ETCD_DATA_DIR="/var/lib/etcd/default.etcd"
 #ETCD_WAL_DIR=""
-#其它节点监听地址
+#用于向其它节点通信监听地址
 ETCD_LISTEN_PEER_URLS="http://192.168.1.201:2380"
 # 2379 用于客户端通信，2380 用于节点通信
 ETCD_LISTEN_CLIENT_URLS="http://192.168.1.201:2379,http://127.0.0.1:2379"
@@ -90,6 +90,7 @@ ETCD_NAME="master"
 #[Clustering]
 #表示节点监听其他节点同步信号的地址
 ETCD_INITIAL_ADVERTISE_PEER_URLS="http://192.168.1.201:2380"
+#通告用于向客户端提供服务的URL
 ETCD_ADVERTISE_CLIENT_URLS="http://192.168.1.201:2379"
 #ETCD_DISCOVERY=""
 #ETCD_DISCOVERY_FALLBACK="proxy"
