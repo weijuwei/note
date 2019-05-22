@@ -152,6 +152,7 @@ k8s.gcr.io/pause                     3.1                 da86e6ba6ca1        14 
 
 ##### 2、主节点初始化
 
+```shell
 [root@k8s-master ~]# kubeadm init --kubernetes-version="v1.13.4" --pod-network-cidr="10.244.0.0/16"	
 Your Kubernetes master has initialized successfully!
 
@@ -170,6 +171,10 @@ as root:
 
   kubeadm join 192.168.47.141:6443 --token 438iqn.hop1pmcwxqfquy23 --discovery-token-ca-cert-hash sha256:a5e085b08c38e1be284ef74c9f734a0af299d36fd5ab65d8e8e43714b55a629b
 
+# 查看join信息
+[root@k8s-master ~]# kubeadm token create --print-join-command
+kubeadm join 192.168.47.141:6443 --token ij2pbh.vrl8jk7o2pm588xh --discovery-token-ca-cert-hash sha256:a5e085b08c38e1be284ef74c9f734a0af299d36fd5ab65d8e8e43714b55a629b
+
 [root@k8s-master ~]# mkdir .kube
 [root@k8s-master ~]# cp /etc/kubernetes/admin.conf .kube/config
 
@@ -177,6 +182,9 @@ as root:
 [root@k8s-master ~]# kubectl get node
 NAME         STATUS     ROLES    AGE   VERSION
 k8s-master   NotReady   master   26m   v1.13.4
+```
+
+
 
 ##### 3、安装部署pod网络   flannel
 
