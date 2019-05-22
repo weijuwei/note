@@ -184,8 +184,6 @@ NAME         STATUS     ROLES    AGE   VERSION
 k8s-master   NotReady   master   26m   v1.13.4
 ```
 
-
-
 ##### 3、安装部署pod网络   flannel
 
 ```shell
