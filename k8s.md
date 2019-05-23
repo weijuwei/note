@@ -18,7 +18,8 @@ hosts域名解析
 禁用swap  临时禁用命令swapoff -a  永久禁用在fstab文件中编辑
 
 加载ipvs内核模块
-
+modprobe br_netfilter
+或
 ```shell
 #!/bin/bash
 ipvs_mods_dir="/usr/lib/modules/$(uname -r)/kernel/net/netfilter/ipvs"
