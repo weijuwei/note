@@ -1,4 +1,6 @@
-k8s安装部署
+#### k8s安装部署
+##### 一、版本信息
+
 centos7.5
 master 192.168.47.141
 node1  192.168.47.142
@@ -9,7 +11,7 @@ kubectl-1.13.4-0.x86_64
 kubeadm-1.13.4-0.x86_64
 kubectl-1.13.4-0.x86_64
 
-#### 一、准备
+##### 二、准备
 
 ssh互信
 ntpd时间同步
@@ -71,14 +73,14 @@ gpgcheck=0
 enabled=1
 ```
 
-#### 二、三节点安装相关程序包
+##### 三、三节点安装相关程序包
 
 ```shell
 yum install docker-ce -y
 yum install kubelet kubeadm kubectl -y
 ```
 
-三、在各节点启动docker服务
+在各节点启动docker服务
 若要通过默认的k8s.gcr.io镜象获取kubernetes系统组件的相关镜象，需要配置docker.service的Unit file中的Environment变量，为其定义合适的HTTPS_PROXY,格式如下
 
 ```shell
@@ -107,12 +109,12 @@ net.bridge.bridge-nf-call-ip6tables = 1
 net.bridge.bridge-nf-call-iptables = 1
 ```
 
-#### 四、初始化主节点master
+##### 四、初始化主节点master
 
 systemctl enable kubelet
 systemctl start kubelet
 
-##### 1、主节点镜像拉取
+###### 1、主节点镜像拉取
 
 若未禁用Swap设备，则需要编辑kubelet的配置文件，设置其忽略swap启用的状态错误，内容如下：
 
@@ -164,7 +166,7 @@ k8s.gcr.io/pause                     3.1                 da86e6ba6ca1        14 
 1. 通过命令行选项传递关键的部署设定
 2. 基于yaml格式的专用配置文件，允许用户自定义各个部署参数
 
-##### 2、主节点初始化
+###### 2、主节点初始化
 
 ```shell
 [root@k8s-master ~]# kubeadm init --kubernetes-version="v1.13.4" --pod-network-cidr="10.244.0.0/16"	
@@ -198,7 +200,7 @@ NAME         STATUS     ROLES    AGE   VERSION
 k8s-master   NotReady   master   26m   v1.13.4
 ```
 
-##### 3、安装部署pod网络   flannel
+###### 3、安装部署pod网络   flannel
 
 ```shell
 kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
@@ -311,7 +313,7 @@ k8s.gcr.io/etcd-amd64                                                    3.2.18 
 k8s.gcr.io/pause                                                         3.1                 da86e6ba6ca1        9 months ago        742 kB
 ```
 
-一些命令
+###### 4、一些命令
 
 ```shell
 #列出指定命名的pod
@@ -329,6 +331,8 @@ kubectl label pods myapp-rc-9xmxs -n test-ns newlabel=hello # 给指定pod添加
 kubectl label pods myapp-rc-9xmxs -n test-ns newlabel=world --overwrite #更新指定pod的指定label
 kubectl label pod myapp-rc-9xmxs -n test-ns newlabel #删除指定pod的指定label
 kubectl get pod -n test-ns --show-labels  #获取指定pod信息，以显示label的形式
+kubectl get pods --show-labels  # 显示对象的标签信息
+kubectl get pods -l test  # 显示带有test标签的对象
 ```
 
 k8s删除资源状态一直是Terminating。此为背景。
@@ -344,7 +348,7 @@ kubectl delete pod PODNAME --force --grace-period=0
 
 
 
-#### 安装kubernetes-dashboard	 版本1.10.0
+###### 5、安装kubernetes-dashboard	 版本1.10.0
 一、
 通过官方yaml文件安装kubernetes-dashboard  登陆需要token
 
@@ -420,7 +424,7 @@ subjects:
 
 =======================================================================================
 
-部署nginx
+#### 部署nginx
 cat nginx.yml
 
 ```yaml
@@ -645,7 +649,9 @@ Session Affinity:  None
 ## Events:  
 ```
 
-​    查询资源定义
+#### yaml文件定义
+
+查询资源定义
 This command describes the fields associated with each supported API resource
 
 kubectl explain RESOURCE [options]
@@ -808,7 +814,7 @@ Session Affinity:  None
 Events:            <none>
 ```
 
-
+#### 部署Ingress
 
 Ingress本质是通过http代理服务器将外部的http请求转发到集群内部的后端服务
 
@@ -1104,11 +1110,11 @@ start server myapp.example.com
 
 浏览器访问https://myapp.example.com:30443
 
-
+#### 数据卷
 
 在Docker中就有数据卷的概念，当容器删除时，数据也一起会被删除，想要持久化使用数据，需要把主机上的目录挂载到Docker中去，在K8S中，数据卷是通过Pod实现持久化的，如果Pod删除，数据卷也会一起删除，k8s的数据卷是docker数据卷的扩展，K8S适配各种存储系统，包括本地存储EmptyDir,HostPath,网络存储NFS,GlusterFS,PV/PVC等，下面就详细介绍下K8S的存储如何实现。
 
-一.本地存储
+##### 一.本地存储
 1，EmptyDir
 ①编辑EmptyDir配置文件
 
@@ -1157,7 +1163,7 @@ kubectl create -f emptydir.yaml
         path: /data      #宿主机挂载点
 ```
 
-二.网络数据卷(NFS)
+##### 二.网络数据卷(NFS)
 1.NFS
 ①编辑一个使用NFS的Pod的配置文件
 
@@ -1197,7 +1203,7 @@ kubectl create -f nfs.yaml
 
 在节点端可以用mount命令查询挂载情况
 
-三.Persistent Volume(PV)和Persistent Volume Claim(PVC)
+##### 三.Persistent Volume(PV)和Persistent Volume Claim(PVC)
 persistentVolumeClaim类型存储卷将PersistentVolume挂接到Pod中作为存储卷。使用此类型的存储卷，用户并不知道存储卷的详细信息。下面就来实现PV/PVC架构。
 1.Persistent Volume(PV)
 ①编辑PV配置文件
@@ -1279,3 +1285,129 @@ volumes:
 ```
 
 当前Pod可用空间为3G，如果超过3G，则需要再创建存储来满足需求，因为是网络数据卷，如果需要扩展空间，直接删除Pod再建立一个即可。
+
+#### Pod存活性探测
+
+##### 1、ExecAction
+
+exec类型的探针通过在目标容器中执行由用户自定义的命令来判定容器的健康状态，若命令状态返回值为0则表示“成功”通过检测，其他值为“失败”状态。
+
+spec.containers.livenessProbe.exec定义
+
+```yaml
+# cat live-exec.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    test: liveness-exec
+  name: liveness-exec
+spec:
+  containers:
+  - name: liveness-exec-demo
+    image: busybox:latest
+    imagePullPolicy: IfNotPresent
+    args: ["/bin/sh","-c"," touch /tmp/healthy; sleep 60;rm -rf /tmp/healthy; sleep 600"]
+    livenessProbe:
+      exec:
+        command: ["test","-e","/tmp/healthy"]
+```
+
+##### 2、HTTPGetAction
+
+基于HTTP的探测向目标容器发起一个HTTP请求，根据其响应码进行结果判定，响应码形如2XX或3XX时表示检测通过。
+
+spec.containers.livenessProbe.httpGet字段来定义
+
+```yaml
+# cat live-http.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    test: liveness
+  name: liveness-http
+spec:
+  containers:
+  - name: liveness-http-demo
+    image: nginx:latest
+    imagePullPolicy: IfNotPresent
+    ports:
+    - name: http
+      containerPort: 80
+    lifecycle:
+      postStart:
+        exec:
+          command: ["/bin/sh","-c"," echo Healthy > /usr/share/nginx/html/healthz"]
+    livenessProbe:
+      httpGet:
+        path: /healthz
+        port: http
+        scheme: HTTP
+```
+
+删除测试页面/healthz，查看状态信息
+
+```shell
+[root@k8s-master livenessprobe]# kubectl exec liveness-http rm /usr/share/nginx/html/healthz
+[root@k8s-master livenessprobe]# kubectl describe pods/liveness-http
+...
+    Ready:          True
+    Restart Count:  1
+    Liveness:       http-get http://:http/healthz delay=0s timeout=1s period=10s #success=1 #failure=3
+    Environment:    <none>
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from default-token-n8tvj (ro)
+Conditions:
+  Type              Status
+  Initialized       True
+  Ready             True
+  ContainersReady   True
+  PodScheduled      True
+Volumes:
+  default-token-n8tvj:
+    Type:        Secret (a volume populated by a Secret)
+    SecretName:  default-token-n8tvj
+    Optional:    false
+QoS Class:       BestEffort
+Node-Selectors:  <none>
+Tolerations:     node.kubernetes.io/not-ready:NoExecute for 300s
+                 node.kubernetes.io/unreachable:NoExecute for 300s
+Events:
+  Type     Reason     Age                  From                Message
+  ----     ------     ----                 ----                -------
+  Normal   Scheduled  33m                  default-scheduler   Successfully assigned default/liveness-http to k8s-node1
+  Normal   Pulled     107s (x2 over 33m)   kubelet, k8s-node1  Container image "nginx:latest" already present on machine
+  Normal   Created    107s (x2 over 33m)   kubelet, k8s-node1  Created container
+  Normal   Started    107s (x2 over 33m)   kubelet, k8s-node1  Started container
+  Warning  Unhealthy  107s (x3 over 2m7s)  kubelet, k8s-node1  Liveness probe failed: HTTP probe failed with statuscode: 404
+  Normal   Killing    107s                 kubelet, k8s-node1  Killing container with id docker://liveness-http-demo:Container failed liveness probe.. Container will be killed and recreated.
+```
+
+#####  3、TCPSocketAction
+
+基于TCP的存活性探测用于向容器的特定端口发起TCP请求并尝试建立连接进行结果判定，连接建立成功即为通过检测。
+
+spec.containers.livenessProbe.tcpSocket字段定义
+
+```yaml
+# cat live-tcp.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: liveness-tcp
+  labels:
+    test: liveness
+spec:
+  containers:
+  - name: liveness-tcp-demo
+    image: nginx:latest
+    imagePullPolicy: IfNotPresent
+    ports:
+    - name: http
+      containerPort: 80
+    livenessProbe:
+      tcpSocket:
+        port: http
+```
+
