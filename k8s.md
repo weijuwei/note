@@ -335,6 +335,48 @@ kubectl get pods --show-labels  # 显示对象的标签信息
 kubectl get pods -l test  # 显示带有test标签的对象
 ```
 
+获取资源api资源类型
+
+```shell
+kubectl api-resources
+```
+
+获取资源api版本
+
+```shell
+kubectl api-versions
+[root@k8s-master ~]# kubectl api-versions
+admissionregistration.k8s.io/v1beta1
+apiextensions.k8s.io/v1beta1
+apiregistration.k8s.io/v1
+apiregistration.k8s.io/v1beta1
+apps/v1
+apps/v1beta1
+apps/v1beta2
+authentication.k8s.io/v1
+authentication.k8s.io/v1beta1
+authorization.k8s.io/v1
+authorization.k8s.io/v1beta1
+autoscaling/v1
+autoscaling/v2beta1
+autoscaling/v2beta2
+batch/v1
+batch/v1beta1
+certificates.k8s.io/v1beta1
+coordination.k8s.io/v1beta1
+events.k8s.io/v1beta1
+extensions/v1beta1
+networking.k8s.io/v1
+policy/v1beta1
+rbac.authorization.k8s.io/v1
+rbac.authorization.k8s.io/v1beta1
+scheduling.k8s.io/v1beta1
+storage.k8s.io/v1
+storage.k8s.io/v1beta1
+```
+
+
+
 k8s删除资源状态一直是Terminating。此为背景。
 解决方法：
 
@@ -345,8 +387,6 @@ kubectl delete pod PODNAME --force --grace-period=0
 # 删除NAMESPACE
  kubectl delete namespace NAMESPACENAME --force --grace-period=0
 ```
-
-
 
 ###### 5、安装kubernetes-dashboard	 版本1.10.0
 一、
@@ -423,231 +463,6 @@ subjects:
 ```
 
 =======================================================================================
-
-#### 部署nginx
-cat nginx.yml
-
-```yaml
-apiVersion: v1
-kind: Pod
-metadata:
-  name: nginx
-  labels:
-     app: nginx
-spec:
-     containers:
-        - name: nginx
-          image: nginx
-          imagePullPolicy: IfNotPresent
-          ports:
-          - containerPort: 80
-          volumeMounts:
-          - mountPath: /usr/share/nginx/html/
-            name: web-data
-     restartPolicy: Always
-     volumes:
-     - name: web-data
-       hostPath:
-         path: /data/webdata
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: nginx-service
-spec:
-  type: NodePort
-  sessionAffinity: ClientIP
-  selector:
-    app: nginx
-  ports:
-    - port: 80
-      nodePort: 30080
-```
-
-```shell
-kubectl apply -f nginx.yml
-```
-
-
-创建了一个名为nginx的pod，把宿主机/data/webdata挂载到容器中/usr/share/nginx/html/下
-
-进入容器的bash
-
-```shell
-kubectl exec nginx -it bash
-```
-
-获取资源api资源类型
-
-```shell
-kubectl api-resources
-```
-
-获取资源api版本
-
-```shell
-kubectl api-versions
-[root@k8s-master ~]# kubectl api-versions
-admissionregistration.k8s.io/v1beta1
-apiextensions.k8s.io/v1beta1
-apiregistration.k8s.io/v1
-apiregistration.k8s.io/v1beta1
-apps/v1
-apps/v1beta1
-apps/v1beta2
-authentication.k8s.io/v1
-authentication.k8s.io/v1beta1
-authorization.k8s.io/v1
-authorization.k8s.io/v1beta1
-autoscaling/v1
-autoscaling/v2beta1
-autoscaling/v2beta2
-batch/v1
-batch/v1beta1
-certificates.k8s.io/v1beta1
-coordination.k8s.io/v1beta1
-events.k8s.io/v1beta1
-extensions/v1beta1
-networking.k8s.io/v1
-policy/v1beta1
-rbac.authorization.k8s.io/v1
-rbac.authorization.k8s.io/v1beta1
-scheduling.k8s.io/v1beta1
-storage.k8s.io/v1
-storage.k8s.io/v1beta1
-```
-
-1、创建一个名为nginx-test的deployment，使用的镜像是nginx:latest
-
-```shell
-# kubectl create deployment nginx-test --image=nginx:latest
-
-[root@k8s-master ~]# kubectl get all
-NAME                              READY   STATUS    RESTARTS   AGE
-pod/nginx-test-6bc94865df-vscnv   1/1     Running   0          2m30s
-NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
-service/kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   42h
-NAME                         READY   UP-TO-DATE   AVAILABLE   AGE
-deployment.apps/nginx-test   1/1     1            1           2m30s
-NAME                                    DESIRED   CURRENT   READY   AGE
-replicaset.apps/nginx-test-6bc94865df   1         1         1       2m30s
-
-查看创建的pod的信息
-[root@k8s-master ~]# kubectl get pod -o wide
-NAME                          READY   STATUS    RESTARTS   AGE     IP           NODE        NOMINATED NODE   READINESS GATES
-nginx-test-6bc94865df-vscnv   1/1     Running   0          3m37s   10.244.2.6   k8s-node2   <none>           <none>
-通过ip 10.244.2.6 可以访问nginx web资源
-```
-
-2、clusterip service 
-创建一个cluster service关联nginx-test deployment的clusterip service 并将其80端口和pod的80端口作映射
-
-```shell
-# kubectl create service clusterip nginx-test --tcp=80:80
-
-[root@k8s-master ~]# kubectl get svc nginx-test -o wide
-NAME         TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)   AGE     SELECTOR
-nginx-test   ClusterIP   10.103.214.69   <none>        80/TCP    2m32s   app=nginx-test
-
-yaml格式输出nginx-test service的信息
-[root@k8s-master ~]# kubectl get svc nginx-test -o yaml
-apiVersion: v1
-kind: Service
-metadata:
-  creationTimestamp: "2019-03-11T11:38:46Z"
-  labels:
-    app: nginx-test
-  name: nginx-test
-  namespace: default
-  resourceVersion: "93967"
-  selfLink: /api/v1/namespaces/default/services/nginx-test
-  uid: 3b12817e-43f2-11e9-aa7d-000c299777e4
-spec:
-  clusterIP: 10.103.214.69
-  ports:
-
-- name: 80-80
-  port: 80
-  protocol: TCP
-  targetPort: 80
-    selector:
-  app: nginx-test
-    sessionAffinity: None
-    type: ClusterIP
-  status:
-    loadBalancer: {}
-
-通过describe获取service信息
-[root@k8s-master ~]# kubectl describe service nginx-test
-Name:              nginx-test
-Namespace:         default
-Labels:            app=nginx-test
-Annotations:       <none>
-Selector:          app=nginx-test
-Type:              ClusterIP
-IP:                10.103.214.69
-Port:              80-80  80/TCP
-TargetPort:        80/TCP
-Endpoints:         10.244.2.6:80
-Session Affinity:  None
-Events:            <none>
-
-通过10.103.214.69  可以访问nginx web资源
-```
-
-3、nodeport service
-删除上面创建的名为nginx-test的clusterip service，创建一个名为nginx-test的nodeport service并将其 80端口和pod 80端口作映射关联
-
-```shell
-[root@k8s-master ~]# kubectl get svc nginx-test -o wide
-NAME         TYPE       CLUSTER-IP      EXTERNAL-IP   PORT(S)        AGE     SELECTOR
-nginx-test   NodePort   10.111.66.176   <none>        80:31274/TCP   2m17s   app=nginx-test
-
-[root@k8s-master ~]# kubectl describe svc nginx-test
-Name:                     nginx-test
-Namespace:                default
-Labels:                   app=nginx-test
-Annotations:              <none>
-Selector:                 app=nginx-test
-Type:                     NodePort
-IP:                       10.111.66.176
-Port:                     80-80  80/TCP
-TargetPort:               80/TCP
-NodePort:                 80-80  31274/TCP
-Endpoints:                10.244.1.12:80,10.244.2.6:80
-Session Affinity:         None
-External Traffic Policy:  Cluster
-Events:                   <none>
-通过节点IP:31274可以访问nginx web资源
-```
-
-4、
-对deployment进行扩容 
-```shell
-# kubectl scale --replicas=2 deployment nginx-test
-
-扩容至2个
-[root@k8s-master ~]# kubectl get pods
-NAME                          READY   STATUS    RESTARTS   AGE
-nginx-test-6bc94865df-tnz85   1/1     Running   0          74s
-nginx-test-6bc94865df-vscnv   1/1     Running   0          32m
-
-查看service信息 
-[root@k8s-master ~]# kubectl describe svc nginx-test
-Name:              nginx-test
-Namespace:         default
-Labels:            app=nginx-test
-Annotations:       <none>
-Selector:          app=nginx-test
-Type:              ClusterIP
-IP:                10.103.214.69
-Port:              80-80  80/TCP
-TargetPort:        80/TCP
-Endpoints:         10.244.1.12:80,10.244.2.6:80
-Session Affinity:  None
-
-## Events:  
-```
 
 #### yaml文件定义
 
@@ -813,301 +628,6 @@ Session Affinity:  None
 Events:            <none>
 ```
 
-#### 部署Ingress
-
-Ingress本质是通过http代理服务器将外部的http请求转发到集群内部的后端服务
-
-Ingress由两部分组成：Ingress Controller 和 Ingress 服务。
-
-Ingress Contronler 通过与 Kubernetes API 交互，动态的去感知集群中 Ingress 规则变化，然后读取它，按照自定义的规则，规则就是写明了哪个域名对应哪个service，生成一段 Nginx 配置，再写到 Nginx-ingress-control的 Pod 里，这个 Ingress Contronler 的pod里面运行着一个nginx服务，控制器会把生成的nginx配置写入/etc/nginx.conf文件中，然后 reload 一下 使用配置生效。以此来达到域名分配置及动态更新的问题。
-
-部署ingress-nginx例子
-https://kubernetes.github.io/ingress-nginx/deploy/
-
-1、
-创建Nginx-ingress-controller pod
-
-```shell
-kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/mandatory.yaml
-
-kubectl get pod -n ingress-nginx
-NAME                                        READY   STATUS    RESTARTS   AGE
-nginx-ingress-controller-797b884cbc-6fh2s   1/1     Running   0          6m33s
-```
-
-2、
-为上面的Nginx-ingress-control创建一个service
-
-```shell
-kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/provider/baremetal/service-nodeport.yaml
-
-cat service-nodeport.yaml
-
-apiVersion: v1
-kind: Service
-metadata:
-  name: ingress-nginx
-  namespace: ingress-nginx
-  labels:
-    app.kubernetes.io/name: ingress-nginx
-    app.kubernetes.io/part-of: ingress-nginx
-spec:
-  type: NodePort
-  ports:
-    - name: http
-      port: 80
-      targetPort: 80
-      protocol: TCP
-      nodePort: 30080
-    - name: https
-      port: 443
-      targetPort: 443
-      protocol: TCP
-      nodePort: 30443
-  selector:
-    app.kubernetes.io/name: ingress-nginx
-    app.kubernetes.io/part-of: ingress-nginx
-
-kubectl get svc -n ingress-nginx
-
-NAME            TYPE       CLUSTER-IP      EXTERNAL-IP   PORT(S)                      AGE
-ingress-nginx   NodePort   10.99.107.150   <none>        80:30080/TCP,443:30443/TCP   7s
-```
-
-3、
-创建后端测试pod
-
-```yaml
-cat ingress-test.yml
----
-apiVersion: extensions/v1beta1
-kind: Ingress
-metadata:
-  name: ingress-myapp
-  namespace: test-ns
-  annotations:
-    kubernetes.io/ingress.class: "nginx"
-spec:
-  rules:
-  - host: myapp.example.com
-    http:
-      paths:
-      - path:
-        backend:
-          serviceName: myapp-rc
-          servicePort: 80
-[root@k8s-master ingress-nginx]# cat rc-test.yml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: test-ns
-spec:
-------
-apiVersion: v1
-kind: ReplicationController
-metadata:
-  name: myapp-rc
-  namespace: test-ns
-spec:
-  replicas: 2
-  selector:
-    app: myapp-rc
-  template:
-    metadata:
-      labels:
-        app: myapp-rc
-    spec:
-      containers:
-      - name: myapp-rc
-        image: ikubernetes/myapp:v7
-------
-apiVersion: v1
-kind: Service
-metadata:
-  name: myapp-rc
-  namespace: test-ns
-spec:
-  #type: ClusterIP
-  ports:
-  - port: 80
-    protocol: TCP
-    targetPort: 80
-  selector:
-    app: myapp-rc
-```
-
-4、
-创建一个ingress 并将其和上面创建的myapp-rc service关联
-
-```yaml
-cat ingress-test.yml
----
-apiVersion: extensions/v1beta1
-kind: Ingress
-metadata:
-  name: ingress-myapp
-  namespace: test-ns
-  annotations:
-    kubernetes.io/ingress.class: "nginx"
-spec:
-  rules:
-  - host: myapp.example.com
-    http:
-      paths:
-      - path:
-        backend:
-          serviceName: myapp-rc
-          servicePort: 80
-
-# kubectl get ing -n test-ns
-
-NAME            HOSTS               ADDRESS   PORTS   AGE
-ingress-myapp   myapp.example.com             80      28s
-```
-
-查看详细描述信息
-
-```shell
-kubectl describe ing ingress-myapp -n test-ns
-
-Name:             ingress-myapp
-Namespace:        test-ns
-Address:
-Default backend:  default-http-backend:80 (<none>)
-Rules:
-  Host               Path  Backends
-
-------
-
-  myapp.example.com
-                        myapp-rc:80 (<none>)
-Annotations:
-  kubectl.kubernetes.io/last-applied-configuration:  {"apiVersion":"extensions/v1beta1","kind":"Ingress","metadata":{"annotations":{"kubernetes.io/ingress.class":"nginx"},"name":"ingress-myapp","namespace":"test-ns"},"spec":{"rules":[{"host":"myapp.example.com","http":{"paths":[{"backend":{"serviceName":"myapp-rc","servicePort":80},"pat":null}]}}]}}
-
-  kubernetes.io/ingress.class:  nginx
-Events:
-  Type    Reason  Age    From                      Message
-
-------
-
-  Normal  CREATE  4m48s  nginx-ingress-controller  Ingress test-ns/ingress-myapp
-```
-
-进入ingress-nginx的pod 查看nginx.conf可以看到myapp.example.com的信息
-kubectl exec -it -n ingress-nginx nginx-ingress-controller-797b884cbc-6fh2s bash
-
-start server myapp.example.com
-
-	server {
-		server_name myapp.example.com ;
-	
-		listen 80;
-	
-		set $proxy_upstream_name "-";
-	
-		location / {
-	
-			set $namespace      "test-ns";
-			set $ingress_name   "ingress-myapp";
-			set $service_name   "myapp-rc";
-			set $service_port   "80";
-			set $location_path  "/";
-....
-
-在客户端电脑修改hosts文件，然后浏览器访问http://myapp.example.com:30080
-
-```shell
-[root@k8s-master ingress-nginx]# curl myapp.example.com:30080/hostname.html
-myapp-rc-vhcjb
-[root@k8s-master ingress-nginx]# curl myapp.example.com:30080/hostname.html
-myapp-rc-vzwl6
-```
-
-
-
-+++++++++++++++++++++++++++++++++++++++++++
-配置ssl tls访问
-
-
-生成key
-```shell
-openssl genrsa -out nginx_ingress.key
-```
-
-创建自签证书
-```shell
-openssl req -new -x509 -key nginx_ingress.key -out nginx_ingress.crt
-```
-
-创建secret对象
-```shell
-# kubectl create secret tls myapp-ingress-secret --cert=nginx_ingress.crt --key=nginx_ingress.key
-
-secret/myapp-ingress-secret created
-```
-
-查看创建结果：
-```shell
-# kubectl get secret
-
-NAME                   TYPE                                  DATA   AGE
-default-token-24f2c    kubernetes.io/service-account-token   3      6d16h
-myapp-ingress-secret   kubernetes.io/tls                     2      34s
-```
-
-
-测试用例
-```
-# cat ingress-test-tls.yml
----
-apiVersion: extensions/v1beta1
-kind: Ingress
-metadata:
-  name: ingress-myapp-tls
-  namespace: test-ns
-  annotations:
-    kubernetes.io/ingress.class: "nginx"
-spec:
-  tls: 
-  - hosts:
-    - myapp.example.com
-    secretName: myapp-ingress-secret
-  rules:
-  - host: myapp.example.com
-    http:
-      paths:
-      - path:
-        backend:
-          serviceName: myapp-rc
-          servicePort: 80
-
-# kubectl apply -f ingress-test-tls.yml
-kubectl get ing -n test-ns
-NAME                HOSTS               ADDRESS   PORTS     AGE
-ingress-myapp       myapp.example.com             80        100m
-ingress-myapp-tls   myapp.example.com             80, 443   14s
-
-进入ingress-nginx的pod 查看nginx.conf可以看到myapp.example.com的信息443端口 ssl已经注入进去了
-kubectl exec -it -n ingress-nginx nginx-ingress-controller-797b884cbc-6fh2s bash
-
-start server myapp.example.com
-
-	server {
-		server_name myapp.example.com ;
-
-	listen 80;
-
-	set $proxy_upstream_name "-";
-
-	listen 443  ssl http2;
-
-# PEM sha: cb5ed13051761519240a5abe36b5fa7677b239ca
-
-	ssl_certificate                         /etc/ingress-controller/ssl/default-fake-certificate.pem;
-	ssl_certificate_key                     /etc/ingress-controller/ssl/default-fake-certificate.pem;
-```
-
-浏览器访问https://myapp.example.com:30443
 
 #### 数据卷
 
@@ -1890,4 +1410,500 @@ myapp-ds-8j7v6   0/1   Pending   0     0s
 myapp-ds-8j7v6   0/1   ContainerCreating   0     0s
 myapp-ds-8j7v6   1/1   Running   0     3s
 ```
+#### Service资源
 
+用于为受控于控制器资源的Pod对象提供一个固定、统一的访问接口及负载均衡的能力
+
+通过规则定义出多个Pod对象组合而成的逻辑集合，以及访问这组Pod的策略，Service关联Pod资源的规则要借助于标签选择器来完成
+
+基于标签选择器将一组Pod定义成一个逻辑组合，并通过自己的IP地址和端口调度代理请求至组内的Pod对象之上，向客户端隐藏了真实的、处理用户请求的Pod资源，使得客户端的请求看上去就像是由Service直接处理并进行响应的一样。
+
+工作模式：
+
+- userspace
+- iptables
+- ipvs
+
+##### 实例部署nginx
+
+**通过配置清单文件创建**
+
+cat nginx.yml
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+  labels:
+     app: nginx
+spec:
+     containers:
+        - name: nginx
+          image: nginx
+          imagePullPolicy: IfNotPresent
+          ports:
+          - containerPort: 80
+          volumeMounts:
+          - mountPath: /usr/share/nginx/html/
+            name: web-data
+     restartPolicy: Always
+     volumes:
+     - name: web-data
+       hostPath:
+         path: /data/webdata
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service
+spec:
+  type: NodePort
+  sessionAffinity: ClientIP
+  selector:
+    app: nginx
+  ports:
+    - port: 80
+      nodePort: 30080
+```
+
+```shell
+kubectl apply -f nginx.yml
+```
+
+创建了一个名为nginx的pod，把宿主机/data/webdata挂载到容器中/usr/share/nginx/html/下
+
+进入容器的bash
+
+```shell
+kubectl exec nginx -it bash
+```
+
+**通过命令行进行创建**
+
+1、创建一个名为nginx-test的deployment，使用的镜像是nginx:latest
+
+```shell
+# kubectl create deployment nginx-test --image=nginx:latest
+
+[root@k8s-master ~]# kubectl get all
+NAME                              READY   STATUS    RESTARTS   AGE
+pod/nginx-test-6bc94865df-vscnv   1/1     Running   0          2m30s
+NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+service/kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   42h
+NAME                         READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/nginx-test   1/1     1            1           2m30s
+NAME                                    DESIRED   CURRENT   READY   AGE
+replicaset.apps/nginx-test-6bc94865df   1         1         1       2m30s
+
+查看创建的pod的信息
+[root@k8s-master ~]# kubectl get pod -o wide
+NAME                          READY   STATUS    RESTARTS   AGE     IP           NODE        NOMINATED NODE   READINESS GATES
+nginx-test-6bc94865df-vscnv   1/1     Running   0          3m37s   10.244.2.6   k8s-node2   <none>           <none>
+通过ip 10.244.2.6 可以访问nginx web资源
+```
+
+2、clusterip service 
+创建一个cluster service关联nginx-test deployment的clusterip service 并将其80端口和pod的80端口作映射
+
+```shell
+# kubectl create service clusterip nginx-test --tcp=80:80
+
+[root@k8s-master ~]# kubectl get svc nginx-test -o wide
+NAME         TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)   AGE     SELECTOR
+nginx-test   ClusterIP   10.103.214.69   <none>        80/TCP    2m32s   app=nginx-test
+
+yaml格式输出nginx-test service的信息
+[root@k8s-master ~]# kubectl get svc nginx-test -o yaml
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: "2019-03-11T11:38:46Z"
+  labels:
+    app: nginx-test
+  name: nginx-test
+  namespace: default
+  resourceVersion: "93967"
+  selfLink: /api/v1/namespaces/default/services/nginx-test
+  uid: 3b12817e-43f2-11e9-aa7d-000c299777e4
+spec:
+  clusterIP: 10.103.214.69
+  ports:
+
+- name: 80-80
+  port: 80
+  protocol: TCP
+  targetPort: 80
+    selector:
+  app: nginx-test
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+
+通过describe获取service信息
+[root@k8s-master ~]# kubectl describe service nginx-test
+Name:              nginx-test
+Namespace:         default
+Labels:            app=nginx-test
+Annotations:       <none>
+Selector:          app=nginx-test
+Type:              ClusterIP
+IP:                10.103.214.69
+Port:              80-80  80/TCP
+TargetPort:        80/TCP
+Endpoints:         10.244.2.6:80
+Session Affinity:  None
+Events:            <none>
+
+通过10.103.214.69  可以访问nginx web资源
+```
+
+3、nodeport service
+删除上面创建的名为nginx-test的clusterip service，创建一个名为nginx-test的nodeport service并将其 80端口和pod 80端口作映射关联
+
+```shell
+[root@k8s-master ~]# kubectl get svc nginx-test -o wide
+NAME         TYPE       CLUSTER-IP      EXTERNAL-IP   PORT(S)        AGE     SELECTOR
+nginx-test   NodePort   10.111.66.176   <none>        80:31274/TCP   2m17s   app=nginx-test
+
+[root@k8s-master ~]# kubectl describe svc nginx-test
+Name:                     nginx-test
+Namespace:                default
+Labels:                   app=nginx-test
+Annotations:              <none>
+Selector:                 app=nginx-test
+Type:                     NodePort
+IP:                       10.111.66.176
+Port:                     80-80  80/TCP
+TargetPort:               80/TCP
+NodePort:                 80-80  31274/TCP
+Endpoints:                10.244.1.12:80,10.244.2.6:80
+Session Affinity:         None
+External Traffic Policy:  Cluster
+Events:                   <none>
+通过节点IP:31274可以访问nginx web资源
+```
+
+4、
+对deployment进行扩容 
+
+```shell
+# kubectl scale --replicas=2 deployment nginx-test
+
+扩容至2个
+[root@k8s-master ~]# kubectl get pods
+NAME                          READY   STATUS    RESTARTS   AGE
+nginx-test-6bc94865df-tnz85   1/1     Running   0          74s
+nginx-test-6bc94865df-vscnv   1/1     Running   0          32m
+
+查看service信息 
+[root@k8s-master ~]# kubectl describe svc nginx-test
+Name:              nginx-test
+Namespace:         default
+Labels:            app=nginx-test
+Annotations:       <none>
+Selector:          app=nginx-test
+Type:              ClusterIP
+IP:                10.103.214.69
+Port:              80-80  80/TCP
+TargetPort:        80/TCP
+Endpoints:         10.244.1.12:80,10.244.2.6:80
+Session Affinity:  None
+```
+
+#### 部署Ingress
+
+Ingress本质是通过http代理服务器将外部的http请求转发到集群内部的后端服务
+
+Ingress由两部分组成：Ingress Controller 和 Ingress 服务。
+
+Ingress Contronler 通过与 Kubernetes API 交互，动态的去感知集群中 Ingress 规则变化，然后读取它，按照自定义的规则，规则就是写明了哪个域名对应哪个service，生成一段 Nginx 配置，再写到 Nginx-ingress-control的 Pod 里，这个 Ingress Contronler 的pod里面运行着一个nginx服务，控制器会把生成的nginx配置写入/etc/nginx.conf文件中，然后 reload 一下 使用配置生效。以此来达到域名分配置及动态更新的问题。
+
+部署ingress-nginx例子
+https://kubernetes.github.io/ingress-nginx/deploy/
+
+1、
+创建Nginx-ingress-controller pod
+
+```shell
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/mandatory.yaml
+
+kubectl get pod -n ingress-nginx
+NAME                                        READY   STATUS    RESTARTS   AGE
+nginx-ingress-controller-797b884cbc-6fh2s   1/1     Running   0          6m33s
+```
+
+2、
+为上面的Nginx-ingress-control创建一个service
+
+```shell
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/provider/baremetal/service-nodeport.yaml
+
+cat service-nodeport.yaml
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: ingress-nginx
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+spec:
+  type: NodePort
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      protocol: TCP
+      nodePort: 30080
+    - name: https
+      port: 443
+      targetPort: 443
+      protocol: TCP
+      nodePort: 30443
+  selector:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+
+kubectl get svc -n ingress-nginx
+
+NAME            TYPE       CLUSTER-IP      EXTERNAL-IP   PORT(S)                      AGE
+ingress-nginx   NodePort   10.99.107.150   <none>        80:30080/TCP,443:30443/TCP   7s
+```
+
+3、
+创建后端测试pod
+
+```yaml
+cat ingress-test.yml
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: ingress-myapp
+  namespace: test-ns
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+spec:
+  rules:
+  - host: myapp.example.com
+    http:
+      paths:
+      - path:
+        backend:
+          serviceName: myapp-rc
+          servicePort: 80
+[root@k8s-master ingress-nginx]# cat rc-test.yml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-ns
+spec:
+------
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: myapp-rc
+  namespace: test-ns
+spec:
+  replicas: 2
+  selector:
+    app: myapp-rc
+  template:
+    metadata:
+      labels:
+        app: myapp-rc
+    spec:
+      containers:
+      - name: myapp-rc
+        image: ikubernetes/myapp:v7
+------
+apiVersion: v1
+kind: Service
+metadata:
+  name: myapp-rc
+  namespace: test-ns
+spec:
+  #type: ClusterIP
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: myapp-rc
+```
+
+4、
+创建一个ingress 并将其和上面创建的myapp-rc service关联
+
+```yaml
+cat ingress-test.yml
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: ingress-myapp
+  namespace: test-ns
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+spec:
+  rules:
+  - host: myapp.example.com
+    http:
+      paths:
+      - path:
+        backend:
+          serviceName: myapp-rc
+          servicePort: 80
+
+# kubectl get ing -n test-ns
+
+NAME            HOSTS               ADDRESS   PORTS   AGE
+ingress-myapp   myapp.example.com             80      28s
+```
+
+查看详细描述信息
+
+```shell
+kubectl describe ing ingress-myapp -n test-ns
+
+Name:             ingress-myapp
+Namespace:        test-ns
+Address:
+Default backend:  default-http-backend:80 (<none>)
+Rules:
+  Host               Path  Backends
+
+------
+
+  myapp.example.com
+                        myapp-rc:80 (<none>)
+Annotations:
+  kubectl.kubernetes.io/last-applied-configuration:  {"apiVersion":"extensions/v1beta1","kind":"Ingress","metadata":{"annotations":{"kubernetes.io/ingress.class":"nginx"},"name":"ingress-myapp","namespace":"test-ns"},"spec":{"rules":[{"host":"myapp.example.com","http":{"paths":[{"backend":{"serviceName":"myapp-rc","servicePort":80},"pat":null}]}}]}}
+
+  kubernetes.io/ingress.class:  nginx
+Events:
+  Type    Reason  Age    From                      Message
+
+------
+
+  Normal  CREATE  4m48s  nginx-ingress-controller  Ingress test-ns/ingress-myapp
+```
+
+进入ingress-nginx的pod 查看nginx.conf可以看到myapp.example.com的信息
+kubectl exec -it -n ingress-nginx nginx-ingress-controller-797b884cbc-6fh2s bash
+
+start server myapp.example.com
+
+	server {
+		server_name myapp.example.com ;
+	
+		listen 80;
+	
+		set $proxy_upstream_name "-";
+	
+		location / {
+	
+			set $namespace      "test-ns";
+			set $ingress_name   "ingress-myapp";
+			set $service_name   "myapp-rc";
+			set $service_port   "80";
+			set $location_path  "/";
+....
+
+在客户端电脑修改hosts文件，然后浏览器访问http://myapp.example.com:30080
+
+```shell
+[root@k8s-master ingress-nginx]# curl myapp.example.com:30080/hostname.html
+myapp-rc-vhcjb
+[root@k8s-master ingress-nginx]# curl myapp.example.com:30080/hostname.html
+myapp-rc-vzwl6
+```
+
+
+
++++++++++++++++++++++++++++++++++++++++++++
+配置ssl tls访问
+
+
+生成key
+```shell
+openssl genrsa -out nginx_ingress.key
+```
+
+创建自签证书
+```shell
+openssl req -new -x509 -key nginx_ingress.key -out nginx_ingress.crt
+```
+
+创建secret对象
+```shell
+# kubectl create secret tls myapp-ingress-secret --cert=nginx_ingress.crt --key=nginx_ingress.key
+
+secret/myapp-ingress-secret created
+```
+
+查看创建结果：
+```shell
+# kubectl get secret
+
+NAME                   TYPE                                  DATA   AGE
+default-token-24f2c    kubernetes.io/service-account-token   3      6d16h
+myapp-ingress-secret   kubernetes.io/tls                     2      34s
+```
+
+
+测试用例
+```
+# cat ingress-test-tls.yml
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: ingress-myapp-tls
+  namespace: test-ns
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+spec:
+  tls: 
+  - hosts:
+    - myapp.example.com
+    secretName: myapp-ingress-secret
+  rules:
+  - host: myapp.example.com
+    http:
+      paths:
+      - path:
+        backend:
+          serviceName: myapp-rc
+          servicePort: 80
+
+# kubectl apply -f ingress-test-tls.yml
+kubectl get ing -n test-ns
+NAME                HOSTS               ADDRESS   PORTS     AGE
+ingress-myapp       myapp.example.com             80        100m
+ingress-myapp-tls   myapp.example.com             80, 443   14s
+
+进入ingress-nginx的pod 查看nginx.conf可以看到myapp.example.com的信息443端口 ssl已经注入进去了
+kubectl exec -it -n ingress-nginx nginx-ingress-controller-797b884cbc-6fh2s bash
+
+start server myapp.example.com
+
+	server {
+		server_name myapp.example.com ;
+
+	listen 80;
+
+	set $proxy_upstream_name "-";
+
+	listen 443  ssl http2;
+
+# PEM sha: cb5ed13051761519240a5abe36b5fa7677b239ca
+
+	ssl_certificate                         /etc/ingress-controller/ssl/default-fake-certificate.pem;
+	ssl_certificate_key                     /etc/ingress-controller/ssl/default-fake-certificate.pem;
+```
+
+浏览器访问https://myapp.example.com:30443
