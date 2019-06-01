@@ -760,8 +760,8 @@ spec:
         app: myapp-rc
     spec:
       containers:
-	  - name: myapp-rc
-		image: ikubernetes/myapp:v7
+      - name: myapp-rc
+        image: ikubernetes/myapp:v7
 ---
 apiVersion: v1
 kind: Service
