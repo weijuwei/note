@@ -1057,7 +1057,7 @@ myapp-ingress-secret   kubernetes.io/tls                     2      34s
 
 
 测试用例
-```yaml
+```
 # cat ingress-test-tls.yml
 ---
 apiVersion: extensions/v1beta1
@@ -1272,11 +1272,11 @@ spec:
   - name: redis
     image: redis
     imagePullPolicy: Never
-	volumeMounts:
+    volumeMounts:
     - mountPath: "/data"
       name: data
-	ports:
-	- containerPort: 6379
+    ports:
+    - containerPort: 6379
   volumes:
   - name: data
     persistentVolumeClaim:        #指定使用的PVC
