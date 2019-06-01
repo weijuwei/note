@@ -1204,7 +1204,7 @@ kubectl create -f nfs.yaml
 
 ##### 三.Persistent Volume(PV)和Persistent Volume Claim(PVC)
 persistentVolumeClaim类型存储卷将PersistentVolume挂接到Pod中作为存储卷。使用此类型的存储卷，用户并不知道存储卷的详细信息。下面就来实现PV/PVC架构。
-1.Persistent Volume(PV)
+1.Persistent Volume(PV)  
 ①编辑PV配置文件
 vim persistent-volume.yaml
 
@@ -1226,13 +1226,13 @@ spec:
     path: /test
 ```
 
-②创建PV
+②创建PV  
 
 ```shell
 kubectl create -f  persistent-volume.yaml 
 ```
 
-2.Persistent Volume Claim(PVC)
+2.Persistent Volume Claim(PVC)  
 ①编辑PVC配置文件
 vim test-pvc.yaml 
 
@@ -1249,7 +1249,7 @@ spec:
       storage: 3Gi
 ```
 
-如果当前有两个PV,一个10G，一个2G，请求资源为3G,那么将直接使用10GPV
+如果当前有两个PV,一个10G，一个2G，请求资源为3G,那么将直接使用10GPV  
 ②创建PVC
 
 ```shell
@@ -1277,9 +1277,9 @@ spec:
       name: data
 	ports:
 	- containerPort: 6379
-volumes:
-- name: data
-  persistentVolumeClaim:        #指定使用的PVC
+  volumes:
+  - name: data
+    persistentVolumeClaim:        #指定使用的PVC
   	claimName: test-pvc           #名字一定要正确
 ```
 
