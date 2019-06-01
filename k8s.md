@@ -660,7 +660,6 @@ yaml格式的pod定义文件完整内容：
 
 ~~~yml
 ```
-
 apiVersion: v1        　　#必选，版本号，例如v1
 kind: Pod       　　　　　　#必选，Pod
 metadata:       　　　　　　#必选，元数据
@@ -878,7 +877,7 @@ ingress-nginx   NodePort   10.99.107.150   <none>        80:30080/TCP,443:30443/
 3、
 创建后端测试pod
 
-```shell
+```yaml
 cat ingress-test.yml
 ---
 apiVersion: extensions/v1beta1
@@ -940,7 +939,7 @@ spec:
 4、
 创建一个ingress 并将其和上面创建的myapp-rc service关联
 
-```shell
+```yaml
 cat ingress-test.yml
 ---
 apiVersion: extensions/v1beta1
@@ -1093,19 +1092,19 @@ kubectl exec -it -n ingress-nginx nginx-ingress-controller-797b884cbc-6fh2s bash
 
 start server myapp.example.com
 
-​	server {
-​		server_name myapp.example.com ;
+	server {
+		server_name myapp.example.com ;
 
-​	listen 80;
+	listen 80;
 
-​	set $proxy_upstream_name "-";
+	set $proxy_upstream_name "-";
 
-​	listen 443  ssl http2;
+	listen 443  ssl http2;
 
 # PEM sha: cb5ed13051761519240a5abe36b5fa7677b239ca
 
-​	ssl_certificate                         /etc/ingress-controller/ssl/default-fake-certificate.pem;
-​	ssl_certificate_key                     /etc/ingress-controller/ssl/default-fake-certificate.pem;
+	ssl_certificate                         /etc/ingress-controller/ssl/default-fake-certificate.pem;
+	ssl_certificate_key                     /etc/ingress-controller/ssl/default-fake-certificate.pem;
 ```
 
 浏览器访问https://myapp.example.com:30443
@@ -1286,9 +1285,55 @@ volumes:
 
 当前Pod可用空间为3G，如果超过3G，则需要再创建存储来满足需求，因为是网络数据卷，如果需要扩展空间，直接删除Pod再建立一个即可。
 
-#### Pod存活性探测
+#### Pod生命周期中的一些行为
 
-##### 1、ExecAction
+##### 1、初始化容器
+
+ 应用程序的主容器启动之前要运行的容器，常用于为主容器执行一些预置操作
+
+Pod资源的spec.initContainers字段以列表的形式定义可用的初始容器
+
+```shell
+# cat pod-initcontainer.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-pod-init
+  labels:
+    app: myapp-init
+spec:
+  containers:
+  - name: myapp-container
+    image: ikubernetes/myapp:v7
+    imagePullPolicy: IfNotPresent
+  initContainers:
+  - name: init-something
+    image: busybox:latest
+    imagePullPolicy: IfNotPresent
+    command: ["sh","-c","sleep 15"]
+# 观察容器状态
+[root@k8s-master manifests]# kubectl get pod
+NAME                  READY   STATUS     RESTARTS   AGE
+myapp-pod-init        0/1     Init:0/1   0          5s
+[root@k8s-master manifests]# kubectl get pod
+NAME                  READY   STATUS     RESTARTS   AGE
+myapp-pod-init        1/1     Running   0          17s
+```
+
+##### 2、生命周期的钩子函数
+
+k8s为容器提供两种生命周期钩子
+
+- **postStart**:容器创建完成之后立即运行
+- **preStop**:容器终止操作之前立即运行，同步的方式调用
+
+spec.lifecycle字段中定义
+
+##### 3、容器探测
+
+###### 1、Pod存活性探测
+
+1、ExecAction
 
 exec类型的探针通过在目标容器中执行由用户自定义的命令来判定容器的健康状态，若命令状态返回值为0则表示“成功”通过检测，其他值为“失败”状态。
 
@@ -1313,7 +1358,7 @@ spec:
         command: ["test","-e","/tmp/healthy"]
 ```
 
-##### 2、HTTPGetAction
+2、HTTPGetAction
 
 基于HTTP的探测向目标容器发起一个HTTP请求，根据其响应码进行结果判定，响应码形如2XX或3XX时表示检测通过。
 
@@ -1384,7 +1429,7 @@ Events:
   Normal   Killing    107s                 kubelet, k8s-node1  Killing container with id docker://liveness-http-demo:Container failed liveness probe.. Container will be killed and recreated.
 ```
 
-#####  3、TCPSocketAction
+3、TCPSocketAction
 
 基于TCP的存活性探测用于向容器的特定端口发起TCP请求并尝试建立连接进行结果判定，连接建立成功即为通过检测。
 
@@ -1409,5 +1454,440 @@ spec:
     livenessProbe:
       tcpSocket:
         port: http
+```
+
+###### 2、Pod就序性探测
+
+用于探测容器是否已经初始化完成并可服务于客户端请求，探测操作返回“success”转台时，即传递容器已经“就绪”的信号，探测失败时，就绪性探测不会杀死或重启容器以保证其健康性，而是通知其尚未就绪
+
+spec.containers.readinessProbe.exec字段来定义
+
+```yaml
+# cat readiness-exec.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: readiness-exec
+  labels:
+    test: readiness
+spec:
+  containers:
+  - name: readiness-demo
+    image: busybox:latest
+    imagePullPolicy: IfNotPresent
+    args: ["/bin/sh","-c","while true; do rm -f /tmp/ready; sleep 30; touch /tmp/ready; sleep 300; done"]
+    readinessProbe:
+      exec:
+        command: ["test","-e","/tmp/ready"]
+      initialDelaySeconds: 5
+      periodSeconds: 5
+# 观察状态变化信息
+[root@k8s-master probe]# kubectl get pod -l test=readiness -w
+NAME             READY   STATUS    RESTARTS   AGE
+readiness-exec   0/1     Running   0          7s
+readiness-exec   1/1   Running   0     36s
+# kubectl describe pods/readiness-exec
+State:          Running
+      Started:      Wed, 29 May 2019 09:37:48 +0800
+    Ready:          True
+    Restart Count:  0
+    Readiness:      exec [test -e /tmp/ready] delay=5s timeout=1s period=5s #success=1 #failure=3
+```
+
+#### Pod控制器
+
+实现对Pod对象的管理，包括创建、删除及重新调度等操作。
+
+Pod控制器资源通过持续性监控集群中运行着的符合其标签选择器的Pod资源对象来确保它们严格符合用户期望的状态，包含三个基本的组成部分：
+
+标签选择器：匹配并关联Pod资源对象
+
+期望的副本数：期望在集群中精确运行着的Pod资源的对象数量
+
+Pod模板：用于新建Pod资源对象的Pod模板资源
+
+##### 1、ReplicaSet控制器
+
+用于确保由其管控的Pod对象副本数在任意时刻都能精确满足期望的数量
+
+```shell
+# cat replicaset-demo.yaml
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: rs-example
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: rs-demo
+  template:
+    metadata:
+      labels:
+        app: rs-demo
+    spec:
+      containers:
+      - name: myapp
+        image: ikubernetes/myapp:v6
+        ports:
+        - name: http
+          containerPort: 80
+[root@k8s-master manifests]# kubectl get pod -l app=rs-demo
+NAME               READY   STATUS    RESTARTS   AGE
+rs-example-rs7r6   1/1     Running   0          3h24m
+rs-example-x6qpt   1/1     Running   0          3h24m   
+```
+
+删除一个pod
+
+```shell
+[root@k8s-master probe]# kubectl delete pods/rs-example-rs7r6
+pod "rs-example-rs7r6" deleted
+```
+
+查看pod对象的信息，观察到删除一个Pod对象后，自动创建了一个，以确保Pod的数量
+
+```shell
+[root@k8s-master manifests]# kubectl get pod -l app=rs-demo -w
+NAME               READY   STATUS    RESTARTS   AGE
+rs-example-rs7r6   1/1     Running   0          3h26m
+rs-example-x6qpt   1/1     Running   0          3h26m
+rs-example-rs7r6   1/1   Terminating   0     3h26m
+rs-example-5skxx   0/1   Pending   0     0s
+rs-example-5skxx   0/1   Pending   0     0s
+rs-example-5skxx   0/1   ContainerCreating   0     0s
+rs-example-rs7r6   0/1   Terminating   0     3h26m
+rs-example-5skxx   1/1   Running   0     2s
+rs-example-rs7r6   0/1   Terminating   0     3h26m
+rs-example-rs7r6   0/1   Terminating   0     3h26m
+
+[root@k8s-master manifests]# kubectl get pod -l app=rs-demo
+NAME               READY   STATUS    RESTARTS   AGE
+rs-example-5skxx   1/1     Running   0          2m24s
+rs-example-x6qpt   1/1     Running   0          3h29m
+```
+
+ReplicaSet控制器能对Pod对象数目的异常及时做出响应，是因为它向APIServer注册监听（watch）了相关资源及其列表的变动信息，于是API Server会在变动发生时立即通知给相关的监听客户端。
+
+**更新ReplicaSet控制器**
+
+1、更改模板：升级应用
+
+**仅影响更改之后由其新建的Pod对象，对已有的副本不会产生作用**，可以手动删除相应的Pod，完成一次更改
+
+接着上面的例子，修改模板中镜像文件的的版本
+
+```yaml
+      containers:
+      - name: myapp
+        image: ikubernetes/myapp:v7
+        ports:
+```
+
+执行修改操作
+
+```shell
+[root@k8s-master manifests]# kubectl apply -f replicaset-demo.yaml
+replicaset.apps/rs-example configured
+# 查看对现有副本没有影响
+[root@k8s-master manifests]# kubectl get pod -l app=rs-demo -o \
+ custom-columns=Name:metadata.name,Image:spec.containers[0].image
+Name               Image
+rs-example-5skxx   ikubernetes/myapp:v6
+rs-example-x6qpt   ikubernetes/myapp:v6
+# 手动删除一个
+[root@k8s-master probe]# kubectl delete pods/rs-example-5skxx
+pod "rs-example-5skxx" deleted
+# 查看新生成的版本已更新为新的
+[root@k8s-master manifests]# kubectl get pod -l app=rs-demo -o custom-columns=Name:metadata.name,Image:spec.containers[0].image
+Name               Image
+rs-example-wv67g   ikubernetes/myapp:v7
+rs-example-x6qpt   ikubernetes/myapp:v6
+# 一次性删除所有控制器相关的Pod副本或修改标签，以完成更新升级（不建议使用）
+[root@k8s-master manifests]# kubectl delete pods -l app=rs-demo
+pod "rs-example-wv67g" deleted
+pod "rs-example-x6qpt" deleted
+[root@k8s-master manifests]# kubectl get pod -l app=rs-demo -o custom-columns=Name:metadata.name,Image:spec.containers[0].image
+Name               Image
+rs-example-28mbs   ikubernetes/myapp:v7
+rs-example-lrxdf   ikubernetes/myapp:v7
+```
+
+2、扩容和缩容
+
+改变Pod副本数量，**控制会做出实时响应**
+
+可以通过修改yaml清单文件方式，也可命令行“--replicas”选项进行
+
+```shell
+[root@k8s-master manifests]# kubectl get replicasets rs-example
+NAME         DESIRED   CURRENT   READY   AGE
+rs-example   2         2         2       5h35m
+[root@k8s-master manifests]# kubectl scale replicasets rs-example --replicas=3
+replicaset.extensions/rs-example scaled
+[root@k8s-master manifests]# kubectl get pod -l app=rs-demo
+NAME               READY   STATUS    RESTARTS   AGE
+rs-example-28mbs   1/1     Running   0          5m32s
+rs-example-586p4   1/1     Running   0          13s
+rs-example-lrxdf   1/1     Running   0          5m32s
+[root@k8s-master manifests]# kubectl get replicasets rs-example
+NAME         DESIRED   CURRENT   READY   AGE
+rs-example   3         3         3       5h36m
+```
+
+3、删除ReplicaSet控制器资源
+
+使用kubectl delete命令删除ReplicaSet对象时*默认会一并删除其管控的各Pod对象*，可以通过“–-cascade=false”选项，取消级联，Pod对象不会被删除，仍处于活动状态，由用户自行管理
+
+```shell
+[root@k8s-master manifests]# kubectl delete replicasets rs-example --cascade=false
+replicaset.extensions "rs-example" deleted
+[root@k8s-master manifests]# kubectl get pod -l app=rs-demo
+NAME               READY   STATUS    RESTARTS   AGE
+rs-example-28mbs   1/1     Running   0          10m
+rs-example-586p4   1/1     Running   0          4m46s
+rs-example-lrxdf   1/1     Running   0          10m
+```
+
+##### 2、Deployment控制器
+
+构建于ReplicaSet控制器之上，可为Pod和ReplicaSet资源提供声明式更新
+
+相对于ReplicaSet增加了部分特性：
+
+- 事件和状态查看
+- 回滚
+- 版本记录：对Deployment对象的每一次操作都保存，为后续回滚操使用
+- 暂停和启动：对每次升级，都能随时暂停和启动
+- 多种自动更新方案：一是Recreate，即重建更新机制，全面停止、删除旧有的Pod后用新版本替代；另一个是Rolling Update，即滚动升级机制，逐步替换旧有的Pod至新的版本
+
+**创建**
+
+```yaml
+# cat deployment-demo.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp-deploy
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      containers:
+      - name: myapp-deploy-demo
+        image: ikubernetes/myapp:v6
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+          name: http
+```
+
+```shell
+[root@k8s-master manifests]# kubectl apply -f deployment-demo.yaml
+deployment.apps/myapp-deploy created
+
+[root@k8s-master manifests]# kubectl get deployments myapp-deploy
+NAME           READY   UP-TO-DATE   AVAILABLE   AGE
+myapp-deploy   2/2     2            2           96s
+
+[root@k8s-master manifests]# kubectl get pod -l app=myapp
+NAME                           READY   STATUS    RESTARTS   AGE
+myapp-deploy-8bcf678d7-hxfk7   1/1     Running   0          2m8s
+myapp-deploy-8bcf678d7-mt59x   1/1     Running   0          2m8s
+```
+
+**更新策略**
+
+Deployment控制器详细信息中包含了其更新策略的相关配置信息
+
+```shell
+[root@k8s-master manifests]# kubectl describe deployments myapp-deploy
+Name:                   myapp-deploy
+Namespace:              default
+....
+StrategyType:           RollingUpdate
+MinReadySeconds:        0
+RollingUpdateStrategy:  25% max unavailable, 25% max surge
+...
+OldReplicaSets:  <none>
+NewReplicaSet:   myapp-deploy-8bcf678d7 (2/2 replicas created)
+```
+
+Deployment控制器支持两种更新策略：
+
+- 滚动更新（rolling update）
+
+  在删除一部分旧版本Pod资源的同时，补充创建一部分新版本的Pod对象进行升级，优势是升级期间，服务不会中断，但不同客户端得到的响应内容版本不同
+
+- 重新创建（recreate）
+
+  首先删除现有的Pod对象，而后由控制器基于新模板重新创建出新版本资源对象
+
+**升级和回滚Deployment**
+
+修改Pod模板相关的配置参数就可以完成资源的更新，可以使用apply和patch命令来进行
+
+为了便于观测升级过程，事先修改下等待时长
+
+```shell
+# -p 后跟json格式的参数
+[root@k8s-master manifests]# kubectl patch deployments myapp-deploy -p '{"spec": {"minReadySeconds": 5}}'
+deployment.extensions/myapp-deploy patched
+```
+
+更新Pod模板中的镜像版本
+
+```shell
+[root@k8s-master manifests]# kubectl set image deployments myapp-deploy myapp-deploy-demo=ikubernetes/myapp:v7
+deployment.extensions/myapp-deploy image updated
+```
+
+观测其升级过程
+
+```shell
+[root@k8s-master manifests]# kubectl get deployments myapp-deploy -w
+NAME           READY   UP-TO-DATE   AVAILABLE   AGE
+myapp-deploy   2/2     2            2           33m
+myapp-deploy   2/2   2     2     33m
+myapp-deploy   2/2   2     2     33m
+myapp-deploy   2/2   0     2     33m
+myapp-deploy   2/2   1     2     33m
+myapp-deploy   3/2   1     2     33m
+myapp-deploy   3/2   1     3     33m
+myapp-deploy   2/2   1     2     33m
+myapp-deploy   2/2   2     2     33m
+myapp-deploy   3/2   2     2     33m
+myapp-deploy   3/2   2     3     33m
+myapp-deploy   2/2   2     2     33m
+
+# 升级完成
+[root@k8s-master probe]# kubectl get pod -l app=myapp -o custom-columns=Name:metadata.name,Image:spec.containers[0].image
+Name                            Image
+myapp-deploy-7fb759dbf8-49dsn   ikubernetes/myapp:v7
+myapp-deploy-7fb759dbf8-6nvcq   ikubernetes/myapp:v7
+```
+
+回滚操作
+
+```shell
+[root@k8s-master probe]# kubectl rollout undo deployments myapp-deploy
+deployment.extensions/myapp-deploy rolled back
+
+[root@k8s-master probe]# kubectl get pod -l app=myapp -o custom-columns=Name:metadata.name,Image:spec.containers[0].image
+Name                           Image
+myapp-deploy-8bcf678d7-bv9lm   ikubernetes/myapp:v6
+myapp-deploy-8bcf678d7-w8942   ikubernetes/myapp:v6
+
+# 查看回滚历史记录
+[root@k8s-master probe]# kubectl rollout history deployments myapp-deploy
+deployment.extensions/myapp-deploy
+
+```
+
+**扩容和缩容**
+
+通过修改yaml文件中的spec.replicas即可修改副本数量，也可以通过kubectl edit修改
+
+##### 3、DaemonSet控制器
+
+用于在集群中的全部节点上同时运行一份指定的Pod资源副本，后续加入集群的工作节点也会自动创建一个相关的Pod对象，当从集群中移除节点时，此类Pod对象也将被自动回收而无须重建。
+
+集群中有多少个node节点，就建立多少个pod对象
+
+```yaml
+# cat daemonset-demo.yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: myapp-ds
+  labels:
+    app: myapp-ds
+spec:
+  selector:
+    matchLabels:
+      app: myapp-ds
+  template:
+    metadata:
+      labels:
+        app: myapp-ds
+      name: myapp-ds
+    spec:
+      containers:
+      - name: myapp
+        image: ikubernetes/myapp:v6
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: DAEMONSET
+          value: myapp-daemonset
+          
+[root@k8s-master manifests]# kubectl get pod -l app=myapp-ds
+NAME             READY   STATUS    RESTARTS   AGE
+myapp-ds-67zlj   1/1     Running   0          110s
+myapp-ds-tvgfr   1/1     Running   0          110s
+```
+
+查看资源描述
+
+```shell
+# kubectl describe ds
+Name:           myapp-ds
+Selector:       app=myapp-ds
+Node-Selector:  <none>
+Labels:         app=myapp-ds
+Annotations:    deprecated.daemonset.template.generation: 1
+                kubectl.kubernetes.io/last-applied-configuration:
+                  {"apiVersion":"apps/v1","kind":"DaemonSet","metadata":{"annotations":{},"labels":{"app":"myapp-ds"},"name":"myapp-ds","namespace":"default...
+Desired Number of Nodes Scheduled: 2
+Current Number of Nodes Scheduled: 2
+Number of Nodes Scheduled with Up-to-date Pods: 2
+Number of Nodes Scheduled with Available Pods: 2
+Number of Nodes Misscheduled: 0
+Pods Status:  2 Running / 0 Waiting / 0 Succeeded / 0 Failed
+Pod Template:
+  Labels:  app=myapp-ds
+  Containers:
+   myapp:
+    Image:      ikubernetes/myapp:v6
+    Port:       <none>
+    Host Port:  <none>
+    Environment:
+      DAEMONSET:  myapp-daemonset
+    Mounts:       <none>
+  Volumes:        <none>
+```
+
+更新对象
+
+支持RollingUpdate（滚动更新）和OnDelete（删除时更新）两种更新策略
+
+```shell
+[root@k8s-master ~]# kubectl set image daemonsets myapp-ds myapp=ikubernetes/myapp:v7
+daemonset.extensions/myapp-ds image updated
+[root@k8s-master manifests]# kubectl get pod -l app=myapp-ds -w
+NAME             READY   STATUS    RESTARTS   AGE
+myapp-ds-67zlj   1/1     Running   0          2m48s
+myapp-ds-tvgfr   1/1     Running   0          2m48s
+myapp-ds-67zlj   1/1   Terminating   0     3m6s
+myapp-ds-67zlj   0/1   Terminating   0     3m7s
+myapp-ds-67zlj   0/1   Terminating   0     3m8s
+myapp-ds-67zlj   0/1   Terminating   0     3m8s
+myapp-ds-fnfdz   0/1   Pending   0     0s
+myapp-ds-fnfdz   0/1   Pending   0     0s
+myapp-ds-fnfdz   0/1   ContainerCreating   0     0s
+myapp-ds-fnfdz   1/1   Running   0     2s
+myapp-ds-tvgfr   1/1   Terminating   0     3m10s
+myapp-ds-tvgfr   0/1   Terminating   0     3m11s
+myapp-ds-tvgfr   0/1   Terminating   0     3m12s
+myapp-ds-tvgfr   0/1   Terminating   0     3m12s
+myapp-ds-8j7v6   0/1   Pending   0     0s
+myapp-ds-8j7v6   0/1   Pending   0     0s
+myapp-ds-8j7v6   0/1   ContainerCreating   0     0s
+myapp-ds-8j7v6   1/1   Running   0     3s
 ```
 
