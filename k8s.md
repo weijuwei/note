@@ -1621,7 +1621,8 @@ Ingress由两部分组成：Ingress Controller 和 Ingress 服务。
 Ingress Contronler 通过与 Kubernetes API 交互，动态的去感知集群中 Ingress 规则变化，然后读取它，按照自定义的规则，规则就是写明了哪个域名对应哪个service，生成一段 Nginx 配置，再写到 Nginx-ingress-control的 Pod 里，这个 Ingress Contronler 的pod里面运行着一个nginx服务，控制器会把生成的nginx配置写入/etc/nginx.conf文件中，然后 reload 一下 使用配置生效。以此来达到域名分配置及动态更新的问题。
 
 部署ingress-nginx例子
-https://kubernetes.github.io/ingress-nginx/deploy/
+
+> https://kubernetes.github.io/ingress-nginx/deploy/
 
 1、
 创建Nginx-ingress-controller pod
