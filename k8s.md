@@ -333,6 +333,9 @@ kubectl label pod myapp-rc-9xmxs -n test-ns newlabel #删除指定pod的指定la
 kubectl get pod -n test-ns --show-labels  #获取指定pod信息，以显示label的形式
 kubectl get pods --show-labels  # 显示对象的标签信息
 kubectl get pods -l test  # 显示带有test标签的对象
+#当 Pod 中有多个容器时打开一个 shell
+#如果 Pod 中有多个容器，使用 --container 或 -c 在 kubectl exec 命令中指定一个容器。例如，假设你有一个 Pod 叫 my-pod ，并且这个 Pod 中有两个容器，分别叫做 main-app 和 helper-app 。下面的命令将会打开 main-app 容器的 shell 。
+kubectl exec -it my-pod --container main-app -- /bin/bash
 ```
 
 获取资源api资源类型
@@ -554,6 +557,13 @@ metadata:       　　　　　　#必选，元数据
     - key: string
       path: string    
 ~~~
+
+当用户同时在kubernetes中的yaml文件中写了command和args的时候自然是可以覆盖DockerFile中ENTRYPOINT的命令行和参数,完整的情况分类如下：
+
+- 如果command和args均没有写，那么用Docker默认的配置。
+- 如果command写了，但args没有写，那么Docker默认的配置会被忽略而且仅仅执行.yaml文件的command（不带任何参数的）。
+- 如果command没写，但args写了，那么Docker默认配置的ENTRYPOINT的命令行会被执行，但是调用的参数是.yaml中的args。
+- 如果如果command和args都写了，那么Docker默认的配置被忽略，使用.yaml的配置。
 
 **example 1：**
 
@@ -1424,7 +1434,225 @@ myapp-ds-8j7v6   1/1   Running   0     3s
 - iptables
 - ipvs
 
-##### 实例部署nginx
+*创建实例*
+
+```yaml
+# cat service-demo.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: myapp-svc-demo
+spec:
+  selector:
+    app: myapp
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+    protocol: TCP
+```
+
+关联集群中存在标签为app=myapp的Pod资源，将其作为此Service对象的后端Endpoint对象，并负责接收响应的请求流量。
+
+*查看*
+
+```shell
+# 查看创建的Service，类型为默认的ClusterIP
+[root@k8s-master manifests]# kubectl get svc/myapp-svc-demo
+NAME             TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)   AGE
+myapp-svc-demo   ClusterIP   10.101.220.50   <none>        80/TCP    10m
+
+# 查看endpoints
+[root@k8s-master manifests]# kubectl get endpoints myapp-svc-demo
+NAME             ENDPOINTS                         AGE
+myapp-svc-demo   10.244.1.126:80,10.244.2.123:80   15m
+
+# 关联的pod
+[root@k8s-master manifests]# kubectl get pods -o wide
+NAME                            READY   STATUS    RESTARTS   AGE     IP             NODE        NOMINATED NODE   READINESS GATES
+myapp-deploy-7fb759dbf8-b9ptc   1/1     Running   3          2d18h   10.244.1.126   k8s-node1   <none>           <none>
+myapp-deploy-7fb759dbf8-s7tlq   1/1     Running   3          2d18h   10.244.2.123   k8s-node2   <none>           <none>
+```
+
+*向Service对象发起请求*
+
+```shell
+[root@k8s-master manifests]# for i in {1..10};do curl 10.101.220.50/hostname.html;sleep 0.5;done
+myapp-deploy-7fb759dbf8-b9ptc
+myapp-deploy-7fb759dbf8-b9ptc
+myapp-deploy-7fb759dbf8-s7tlq
+myapp-deploy-7fb759dbf8-s7tlq
+myapp-deploy-7fb759dbf8-s7tlq
+myapp-deploy-7fb759dbf8-b9ptc
+myapp-deploy-7fb759dbf8-b9ptc
+myapp-deploy-7fb759dbf8-s7tlq
+myapp-deploy-7fb759dbf8-b9ptc
+myapp-deploy-7fb759dbf8-b9ptc
+```
+
+*设置Serivce会话粘性SessionAffinity*
+
+**格式**：
+
+```yaml
+spec:
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: <integer>
+```
+
+命令行
+
+```shell
+[root@k8s-master ~]# kubectl patch services myapp-svc-demo -p '{"spec": {"sessionAffinity": "ClientIP"}}'
+service/myapp-svc-demo patched
+```
+
+查看效果：
+
+```shell
+[root@k8s-master manifests]# for i in {1..20};do curl 10.101.220.50/hostname.html;sleep 1;done
+myapp-deploy-7fb759dbf8-s7tlq
+myapp-deploy-7fb759dbf8-b9ptc
+myapp-deploy-7fb759dbf8-b9ptc
+myapp-deploy-7fb759dbf8-s7tlq
+myapp-deploy-7fb759dbf8-s7tlq
+myapp-deploy-7fb759dbf8-s7tlq
+myapp-deploy-7fb759dbf8-b9ptc
+myapp-deploy-7fb759dbf8-s7tlq
+myapp-deploy-7fb759dbf8-b9ptc
+myapp-deploy-7fb759dbf8-s7tlq
+myapp-deploy-7fb759dbf8-s7tlq
+myapp-deploy-7fb759dbf8-b9ptc
+myapp-deploy-7fb759dbf8-b9ptc
+myapp-deploy-7fb759dbf8-b9ptc
+myapp-deploy-7fb759dbf8-b9ptc
+myapp-deploy-7fb759dbf8-b9ptc
+myapp-deploy-7fb759dbf8-b9ptc
+myapp-deploy-7fb759dbf8-b9ptc
+myapp-deploy-7fb759dbf8-b9ptc
+myapp-deploy-7fb759dbf8-b9ptc
+```
+
+##### Service类型
+
+###### 1、ClusterIP
+
+默认类型，通过集群内部IP地址暴露服务，此地址仅在集群内部可达，而无法被集群外部的客户端访问
+
+###### 2、NodePort
+
+这种类型建立在ClusterIP类型之上，其在每个节点的IP地址的某静态端口(NodePort)暴露服务，会为Service分配集群IP地址，并将此作为NodePort的路由目标。
+
+NodePort类型在工作节点的IP地址上选择一个端口用于将集群外部的用户请求转发至目标Service的ClusterIP和Port。
+
+```yaml
+# cat service-nodeport.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: myapp-svc-nodeport
+spec:
+  type: NodePort
+  selector:
+    app: myapp
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: 80
+    nodePort: 32080
+```
+
+```shell
+[root@k8s-master manifests]# kubectl get svc myapp-svc-nodeport
+NAME                 TYPE       CLUSTER-IP      EXTERNAL-IP   PORT(S)        AGE
+myapp-svc-nodeport   NodePort   10.108.229.37   <none>        80:32080/TCP   25s
+```
+
+可以通过节点IP:nodePort访问服务
+
+```shell
+[root@k8s-master manifests]# curl 192.168.47.141:32080/hostname.html
+myapp-deploy-7fb759dbf8-b9ptc
+[root@k8s-master manifests]# curl 192.168.47.141:32080/hostname.html
+myapp-deploy-7fb759dbf8-s7tlq
+```
+
+###### 3、LoadBalancer
+
+建构在NodePort类型之上，其通过cloud provider提供的负载均衡器将服务暴露到集群外部
+
+###### 4、ExternalName
+
+通过将Service映射至由externalName字段的内容指定的主机名来暴露服务，此主机名需被DNS服务解析至CNAME类型的记录。
+
+##### Headless类型
+
+headless对象没有ClusterIP
+
+- 具有标签选择器
+
+  端点控制器会在API中为其创建Endpoints记录，并将ClusterDNS服务中的A记录直接解析到此Service后端的各Pod对象的IP地址上。
+
+- 没有标签选择器
+
+  端点控制器不会在API中为其创建Endpoints记录
+
+```yaml
+# 拥有标签选择器
+# cat service-headless.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: myapp-svc-headless
+spec:
+  clusterIP: None
+  selector:
+    app: myapp
+  ports:
+  - port: 80
+    targetPort: 80
+    name: http
+```
+
+```shell
+[root@k8s-master manifests]# kubectl get svc myapp-svc-headless
+NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+myapp-svc-headless   ClusterIP   None         <none>        80/TCP    12s
+
+[root@k8s-master manifests]# kubectl describe svc myapp-svc-headless
+Name:              myapp-svc-headless
+Namespace:         default
+Labels:            <none>
+Annotations:       kubectl.kubernetes.io/last-applied-configuration:
+                     {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"name":"myapp-svc-headless","namespace":"default"},"spec":{"clusterIP":"N...
+Selector:          app=myapp
+Type:              ClusterIP
+IP:                None
+Port:              http  80/TCP
+TargetPort:        80/TCP
+Endpoints:         10.244.1.126:80,10.244.2.123:80
+Session Affinity:  None
+Events:            <none>
+```
+
+资源发现
+
+DNS解析记录
+
+```shell
+[root@k8s-master ~]# kubectl exec -it myapp-deploy-7fb759dbf8-b9ptc -- /bin/sh
+/ # nslookup myapp-svc-headless
+nslookup: can't resolve '(null)': Name does not resolve
+
+Name:      myapp-svc-headless
+Address 1: 10.244.1.126 myapp-deploy-7fb759dbf8-b9ptc
+Address 2: 10.244.2.123 10-244-2-123.myapp-svc.default.svc.cluster.local
+```
+
+##### 实例
 
 **通过配置清单文件创建**
 
@@ -1612,7 +1840,7 @@ Endpoints:         10.244.1.12:80,10.244.2.6:80
 Session Affinity:  None
 ```
 
-#### 部署Ingress
+##### 部署Ingress
 
 Ingress本质是通过http代理服务器将外部的http请求转发到集群内部的后端服务
 
@@ -1620,9 +1848,13 @@ Ingress由两部分组成：Ingress Controller 和 Ingress 服务。
 
 Ingress Contronler 通过与 Kubernetes API 交互，动态的去感知集群中 Ingress 规则变化，然后读取它，按照自定义的规则，规则就是写明了哪个域名对应哪个service，生成一段 Nginx 配置，再写到 Nginx-ingress-control的 Pod 里，这个 Ingress Contronler 的pod里面运行着一个nginx服务，控制器会把生成的nginx配置写入/etc/nginx.conf文件中，然后 reload 一下 使用配置生效。以此来达到域名分配置及动态更新的问题。
 
-部署ingress-nginx例子
+ingress，基于DNS名称或URL路径把请求转发至指定的Service资源的规则，用于将集群外部的请求流量转发至集群内部完成服务发布。ingress规则需要由一个Service资源对象辅助识别相关的所有Pod对象，规则生成后，ingress-nginx控制器可经由规则的定义，直接将请求流量调度至相关Pod，无须经由Service对象API的再次转发。
+
+**参考**
 
 > https://kubernetes.github.io/ingress-nginx/deploy/
+>
+> https://github.com/kubernetes/ingress-nginx/tree/master/deploy
 
 1、
 创建Nginx-ingress-controller pod
@@ -1908,3 +2140,203 @@ start server myapp.example.com
 ```
 
 浏览器访问https://myapp.example.com:30443
+
+##### 使用Ingress发布Tomcat
+
+1、创建名称空间
+
+```shell
+[root@k8s-master tomcat]# kubectl create namespace test
+```
+
+2、创建部署tomcat实例的deployment控制器
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tomcat-deploy
+  namespace: test
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: tomcat
+  template:
+    metadata:
+      labels:
+        app: tomcat
+    spec:
+      containers:
+      - name: tomcat
+        image: tomcat:9.0.20-jre8-alpine
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+          name: httpport
+        - containerPort: 8009
+          name: aipport
+```
+
+运行创建命令并查看
+
+```shell
+[root@k8s-master tomcat]# kubectl apply -f tomcat-deploy.yaml
+
+[root@k8s-master tomcat]# kubectl get pod -n test
+NAME                            READY   STATUS    RESTARTS   AGE
+tomcat-deploy-d4b654786-bwc7n   1/1     Running   1          24h
+tomcat-deploy-d4b654786-qnfc8   1/1     Running   1          24h
+```
+
+3、创建后端Pod的service资源
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: test
+  name: tomcat-svc
+  labels:
+    app: tomcat-svc
+spec:
+  selector:
+    app: tomcat
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+    protocol: TCP
+  - name: ajp
+    port: 89
+    targetPort: 8009
+    protocol: TCP
+```
+
+运行创建命令并查看
+
+```shell
+[root@k8s-master tomcat]# kubectl apply -f tomcat-deploy-svc.yaml
+
+[root@k8s-master tomcat]# kubectl get svc -n test
+NAME         TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)         AGE
+tomcat-svc   ClusterIP   10.100.125.53   <none>        80/TCP,89/TCP   24h
+```
+
+4、创建Ingress资源
+
+```yaml
+[root@k8s-master tomcat]# cat tomcat-ingress.yaml
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  namespace: test
+  name: tomcat-ingress
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+spec:
+  backend:
+    serviceName: default-svc
+    servicePort: 80
+  rules:
+  - host: tomcat.example.io
+    http:
+      paths:
+      - backend:
+          serviceName: tomcat-svc
+          servicePort: 80
+```
+
+运行创建命令并查看
+
+```shell
+[root@k8s-master tomcat]# kubectl apply -f tomcat-ingress.yaml
+
+[root@k8s-master tomcat]# kubectl get ingress -n test
+NAME                HOSTS               ADDRESS   PORTS   AGE
+tomcat-ingress      tomcat.example.io             80      23h
+```
+
+浏览器访问[tomcat.example.io:30080]()可以访问
+
+5、配置TLS Ingress资源，实现https
+
+生成测试用的私钥和自签证书
+
+```shell
+[root@k8s-master tomcat]# openssl genrsa -out tls.key 2048
+Generating RSA private key, 2048 bit long modulus
+......................................+++
+..............+++
+e is 65537 (0x10001)
+
+[root@k8s-master tomcat]# openssl req -new -x509 -key tls.key -out tls.crt -days 3650
+You are about to be asked to enter information that will be incorporated
+into your certificate request.
+What you are about to enter is what is called a Distinguished Name or a DN.
+There are quite a few fields but you can leave some blank
+For some fields there will be a default value,
+If you enter '.', the field will be left blank.
+-----
+Country Name (2 letter code) [XX]:CN
+State or Province Name (full name) []:GD
+Locality Name (eg, city) [Default City]:DG
+Organization Name (eg, company) [Default Company Ltd]:XL
+Organizational Unit Name (eg, section) []:
+Common Name (eg, your name or your server's hostname) []:tomcat.example.io
+Email Address []:admin@admin.io
+```
+
+创建Secret资源
+
+```shell
+[root@k8s-master tomcat]# kubectl create secret tls tomcat-ingress-secret --cert=tls.crt --key=tls.key -n test
+secret/tomcat-ingress-secret created
+
+[root@k8s-master tomcat]# kubectl get secret -n test
+NAME                    TYPE                                  DATA   AGE
+tomcat-ingress-secret   kubernetes.io/tls                     2      13s
+
+[root@k8s-master tomcat]# kubectl describe secrets tomcat-ingress-secret -n test
+Name:         tomcat-ingress-secret
+Namespace:    test
+Labels:       <none>
+Annotations:  <none>
+
+Type:  kubernetes.io/tls
+
+Data
+====
+tls.crt:  1342 bytes
+tls.key:  1679 bytes
+```
+
+在ingress资源清单中使用secret资源
+
+```shell
+[root@k8s-master tomcat]# cat tomcat-ingress-tls.yaml
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  namespace: test
+  name: tomcat-ingress
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+spec:
+  tls:
+  - hosts:
+    - tomcat.example.io
+    secretName: tomcat-ingress-secret
+  rules:
+  - host: tomcat.example.io
+    http:
+      paths:
+      - backend:
+          serviceName: tomcat-svc
+          servicePort: 80
+
+# 运行资源创建命令
+[root@k8s-master tomcat]# kubectl apply -f tomcat-ingress-tls.yaml
+```
+
+可以通过https://tomcat.example.io:30443/访问tomcat应用
