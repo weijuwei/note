@@ -316,6 +316,9 @@ k8s.gcr.io/pause                                                         3.1    
 ###### 4、一些命令
 
 ```shell
+# kubectl命令行自动补全
+source <(kubectl completion bash)
+echo "source <(kubectl completion bash)" >> ~/.bashrc
 #列出指定命名的pod
 kubectl get pods -n kube-system
 #查看指定pod resource的详细信息
@@ -639,12 +642,22 @@ Events:            <none>
 ```
 
 
-#### 数据卷
+#### 数据卷Volume
+
+Volume隶属于Pod资源，共享于Pod内的所有容器，可用于在容器的文件系统之外存储应用程序的相关数据，甚至可以独立于Pod的生命周期之外实现数据持久化。
 
 在Docker中就有数据卷的概念，当容器删除时，数据也一起会被删除，想要持久化使用数据，需要把主机上的目录挂载到Docker中去，在K8S中，数据卷是通过Pod实现持久化的，如果Pod删除，数据卷也会一起删除，k8s的数据卷是docker数据卷的扩展，K8S适配各种存储系统，包括本地存储EmptyDir,HostPath,网络存储NFS,GlusterFS,PV/PVC等，下面就详细介绍下K8S的存储如何实现。
 
+在Pod中定义使用存储卷的配置由两部分组成：
+
+- 通过spec.volumes字段定义在Pod之上的存储卷列表
+- 通过spec.containers.volumeMounts字段在容器上定义的存储卷挂载列表，它只能挂载当前Pod资源中定义的具体存储卷。
+
 ##### 一.本地存储
 1，EmptyDir
+
+emptyDir存储卷的生命周期与其所属的Pod对象相同，它无法脱离Pod对象的生命周期提供数据存储功能，通常用于数据缓存或临时存储。
+
 ①编辑EmptyDir配置文件
 
 ```yaml
@@ -681,7 +694,10 @@ kubectl create -f emptydir.yaml
 
 此时Emptydir已经创建成功，在宿主机上的访问路径为/var/lib/kubelet/pods/<pod uid>/volumes/kubernetes.io~empty-dir/redis-data,如果在此目录中创建删除文件，都将对容器中的/data目录有影响，如果删除Pod，文件将全部删除，即使是在宿主机上创建的文件也是如此，在宿主机上删除容器则k8s会再自动创建一个容器，此时文件仍然存在。
 
-2.HostDir
+2.HostPath
+
+hostPath类型的存储卷是指将工作节点上某文件系统的目录或文件挂载于Pod中的一种存储卷，它可独立于Pod资源的生命周期，因而具有持久性。
+
 在宿主机上指定一个目录，挂载到Pod的容器中，其实跟上面的写法不尽相同，这里只截取不同的部分，当pod删除时，本地仍然保留文件
 
 ```yaml
@@ -730,60 +746,107 @@ kubectl create -f nfs.yaml
 
 在节点端可以用mount命令查询挂载情况
 
-在节点端可以用mount命令查询挂载情况
-
 ##### 三.Persistent Volume(PV)和Persistent Volume Claim(PVC)
+PersistentVolume(PV)是指由集群管理员配置提供的某存储系统上的一段存储空间，它是对底层共享存储的抽象，将共享存储作为一种可由用户申请使用的资源，实现了“存储消费”机制。
+
+PV是集群级别的资源，不属于任何名称空间
+
+用户对PV资源的使用需要通过PersistentVolumeClaim(PVC)提出使用申请来完成绑定，PVC是PV资源的消费者，它向PV申请特定大小的空间及访问模式，从而创建出PVC存储卷，而后再由Pod资源通过PersistentVolumeClaim存储卷关联使用。
+
+PVC是存储类型的资源，它通过申请占用某个PV而创建，它与PV是一对一的关系，用户无须关心其底层实现细节，申请时，用户只需要指定目标空间的大小、访问模式、PV标签选择器和StorageClass等相关信息即可。
+
 persistentVolumeClaim类型存储卷将PersistentVolume挂接到Pod中作为存储卷。使用此类型的存储卷，用户并不知道存储卷的详细信息。下面就来实现PV/PVC架构。
 1.Persistent Volume(PV)  
 ①编辑PV配置文件
-vim persistent-volume.yaml
+vim pv-demo.yaml
 
 ```yaml
+# cat pv-demo.yaml
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: nfs-pv
+  name: pv-nfs-demo
   labels:
-    type: nfs        #指定类型是NFS
+    release: stable
 spec:
-  capacity:            #指定访问空间是15G
-    storage: 15Gi
-  accessModes:        #指定访问模式是能在多节点上挂载，并且访问权限是读写执行
-    - ReadWriteMany
-  persistentVolumeReclaimPolicy: Recycle        #指定回收模式是自动回收，当空间被释放时，K8S自动清理，然后可以继续绑定使用
+  capacity:
+    storage: 5Gi
+  volumeMode: Filesystem  # 卷模型，裸设备的块设备或文件系统（Filesystem），默认是Filesystem
+  accessModes:  #指定访问模式是能在多节点上挂载，并且访问权限是读写执行
+  - ReadWriteMany
+  persistentVolumeReclaimPolicy: Recycle  #指定回收模式是自动回收，当空间被释放时，K8S自动清理，然后可以继续绑定使用
+  storageClassName: slow
+  mountOptions:
+  - hard
+  - nfsvers=4.1
   nfs:
-    server: 192.168.66.50
-    path: /test
+    path: "/data/webdata"
+    server: master
 ```
+
+accessModes访问模式：
+
+- ReadWriteOnce：仅可被单个节点读写挂载；命令行可简写RWO
+- ReadOnlyMany：可被多个节点同时只读挂载；ROX
+- ReadWriteMany：可被多个节点同时读写挂载；RWX
+
+空间释放处理persistentVolumeReclaimPolicy：
+
+- Retain：保持不动，由管理员手动处理
+- Recycle：空间回收，即删除存储卷目录下的所有文件，目前仅NFS和hostPath支持此操作
+- Delete：删除存储卷
 
 ②创建PV  
 
 ```shell
-kubectl create -f  persistent-volume.yaml 
+kubectl create -f  pv-demo.yaml 
 ```
+
+查看信息
+
+```shell
+[root@k8s-master volume]# kubectl get pv
+NAME          CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM              STORAGECLASS   REASON   AGE
+pv-nfs-demo   5Gi        RWX            Recycle          Bound    default/pvc-demo   slow                    35m
+```
+
+PV状态
+
+- Available：可用状态的自由资源，尚未被PVC绑定
+- Bound：已经绑定至PVC
+- Released：绑定的PVC已经被删除，但资源尚未被回收
+- Failed：因自动回收资源失败处于的故障状态
 
 2.Persistent Volume Claim(PVC)  
 ①编辑PVC配置文件
-vim test-pvc.yaml 
+vim pvc-demo.yaml 
 
 ```yaml
+# cat pvc-demo.yaml
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: test-pvc
+  name: pvc-demo
+  labels:
+   release: stable
 spec:
   accessModes:
-    - ReadWriteMany
-  resources:        #指定请求的资源，存储3G
+  - ReadWriteMany
+  selector:   # 匹配PV标签
+    matchLabels:
+      release: stable
+  volumeMode: Filesystem
+  resources:
     requests:
-      storage: 3Gi
+      storage: 2Gi
+  storageClassName: slow
 ```
 
-如果当前有两个PV,一个10G，一个2G，请求资源为3G,那么将直接使用10GPV  
+
 ②创建PVC
 
 ```shell
-kubectl create -f test-pvc.yaml
+kubectl create -f pvc-demo.yaml
 ```
 
 3.创建Pod以使用PVC
@@ -791,29 +854,27 @@ kubectl create -f test-pvc.yaml
 vim pv-pod.yaml
 
 ```yaml
+# cat pod-pvc-demo.yaml
 apiVersion: v1
 kind: Pod
 metadata:
-  name: redis111
-  labels:
-    app: redis111
+  name: pod-pvc-demo
 spec:
   containers:
-  - name: redis
-    image: redis
-    imagePullPolicy: Never
-    volumeMounts:
-    - mountPath: "/data"
-      name: data
+  - name: myapp-pvc
+    image: ikubernetes/myapp:v6
+    imagePullPolicy: IfNotPresent
     ports:
-    - containerPort: 6379
+    - containerPort: 80
+      name: myapp-http
+    volumeMounts:
+    - name: pvc-vol
+      mountPath: /usr/share/nginx/html/
   volumes:
-  - name: data
-    persistentVolumeClaim:        #指定使用的PVC
-  	claimName: test-pvc           #名字一定要正确
+  - name: pvc-vol
+    persistentVolumeClaim:
+      claimName: pvc-demo
 ```
-
-当前Pod可用空间为3G，如果超过3G，则需要再创建存储来满足需求，因为是网络数据卷，如果需要扩展空间，直接删除Pod再建立一个即可。
 
 #### Pod生命周期中的一些行为
 
@@ -2340,3 +2401,4 @@ spec:
 ```
 
 可以通过https://tomcat.example.io:30443/访问tomcat应用
+
