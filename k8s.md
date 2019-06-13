@@ -876,6 +876,177 @@ spec:
       claimName: pvc-demo
 ```
 
+##### 四、DownwardAPI
+
+Downward API 可以通过以下两种方式将Pod信息注入容器内部。
+ 1.环境变量：用于单个变量，可以将Pod信息和Container信息注入容器内部。
+
+```yaml
+# cat downwardAPI-env.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: env-test-pod
+  labels:
+    app: env-test-pod
+spec:
+  containers:
+  - name: env-test-container
+    image: busybox:latest
+    imagePullPolicy: IfNotPresent
+    command: ["/bin/sh","-c","env"]
+    resources:
+      limits:
+        memory: 64Mi
+        cpu: 250m
+    env:
+    - name: MY_POD_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.name
+    - name: MY_POD_NAMESPACE
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.namespace
+    - name: MY_POD_LABEL
+      valueFrom:
+        fieldRef:
+          fieldPath: metadata.labels['app']
+    - name: MY_CPU_LIMIT
+      valueFrom:
+        resourceFieldRef:
+          resource: limits.cpu
+    - name: MY_MEM_REQUEST
+      valueFrom:
+        resourceFieldRef:
+          resource: requests.memory
+          divisor: 1Mi
+  restartPolicy: Never
+```
+
+ 2.Volume挂载： 将数组类信息生成文件，挂载到容器内部。
+
+```yaml
+# cat downwardAPI-env2.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: env-test-pod
+  labels:
+    app: env-test-pod
+spec:
+  containers:
+  - name: env-test-container
+    image: busybox:latest
+    imagePullPolicy: IfNotPresent
+    command: ["/bin/sh","-c","sleep 600"]
+    resources:
+      limits:
+        memory: 64Mi
+        cpu: 250m
+    volumeMounts:
+    - name: podinfo
+      mountPath: /podinfo
+      readOnly: false
+  volumes:
+  - name: podinfo
+    downwardAPI:
+      defaultMode: 420
+      items:
+      - fieldRef:
+          fieldPath: metadata.name
+        path: pod_name
+      - fieldRef:
+          fieldPath: metadata.namespace
+        path: pod_namespace
+      - fieldRef:
+          fieldPath: metadata.labels
+        path: pod_labels
+      - resourceFieldRef:
+          containerName: env-test-container
+          resource: limits.cpu
+        path: pod_cpu
+      - resourceFieldRef:
+          containerName: env-test-container
+          resource: limits.memory
+          divisor: 1Mi
+        path: pod_mem
+  restartPolicy: Never
+```
+
+查看
+
+```shell
+[root@k8s-master volume]# kubectl exec env-test-pod -- ls /podinfo
+pod_cpu
+pod_labels
+pod_mem
+pod_name
+pod_namespace
+
+[root@k8s-master volume]# kubectl exec env-test-pod -- cat /podinfo/pod_name
+env-test-pod
+```
+
+##### 六、configMap作为volumes
+
+创建一个configmap
+
+```shell
+[root@k8s-master ~]# kubectl create configmap cm-demo --from-literal=user=admin --from-literal=password=123456
+```
+
+创建一个pod，并将configmap作为volumes挂载到容器的的目录
+
+```yaml
+[root@k8s-master volume]# cat pod-configmap-volume-demo.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-cm-vol-demo
+spec:
+  containers:
+  - name: pod-cm-vol
+    image: ikubernetes/myapp:v6
+    imagePullPolicy: IfNotPresent
+    ports:
+    - containerPort: 80
+      name: http
+    volumeMounts:
+    - name: user
+      mountPath: /user/
+  volumes:
+  - name: user
+    configMap:
+      name: cm-demo
+```
+
+查看
+
+```shell
+[root@k8s-master volume]# kubectl exec pod-cm-vol-demo -- ls /user
+password
+user
+
+[root@k8s-master volume]# kubectl exec pod-cm-vol-demo -- cat /user/password
+123456
+
+[root@k8s-master volume]# kubectl exec pod-cm-vol-demo -- cat /user/user
+admin
+```
+
+挂载多个中部分key   定义spec.volumes.configMap.items
+
+```yaml
+  volumes:
+  - name: user
+    configMap:
+      name: cm-demo
+      items:
+      - key: user
+        path: ./user
+```
+
 #### Pod生命周期中的一些行为
 
 ##### 1、初始化容器
