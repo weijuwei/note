@@ -2573,3 +2573,589 @@ spec:
 
 可以通过https://tomcat.example.io:30443/访问tomcat应用
 
+#### 访问控制
+
+APIServer作为Kubernetes集群系统的网关，是访问及管理资源对象的唯一入口，其它所有需要访问集群资源的组件及使用的kubectl命令等都要经由此网关进行集群访问和管理。这些客户端均要经由API Server访问或改变集群状态并完成数据存储，并由它对每一次的访问请求进行合法性检验，包括用户身份鉴别、操作权限验证以及操作是否符合全局规范的约束。所有检查均正常完成且对象配置信息合法性检验无误之后才能访问或存入数据于后端存储系统etcd中。
+
+API Server处理请求的过程中，认证插件负责鉴定用户身份，授权插件用于操作权限许可鉴别，准入控制则用于在资源对象的创建、删除、更新或连接操作时实现更精细的许可检查。
+
+##### 通过URL访问系统资源对象
+
+启动proxy
+
+```shell
+[root@k8s-master ~]# kubectl proxy --port=8080
+Starting to serve on 127.0.0.1:8080
+```
+
+通过URL访问
+
+查看链接
+
+```shell
+[root@k8s-master ~]# kubectl get deploy -o yaml | grep selfLink
+    selfLink: /apis/extensions/v1beta1/namespaces/default/deployments/myapp-deploy
+```
+
+```shell
+[root@k8s-master ~]# curl localhost:8080/api/v1/namespaces
+{
+  "kind": "NamespaceList",
+  "apiVersion": "v1",
+  "metadata": {
+    "selfLink": "/api/v1/namespaces",
+    "resourceVersion": "516313"
+  },
+  "items": [
+    {
+      "metadata": {
+        "name": "default",
+        "selfLink": "/api/v1/namespaces/default",
+        "uid": "3d0aa41c-4be3-11e9-b569-000c299777e4",
+        "resourceVersion": "11",
+        "creationTimestamp": "2019-03-21T14:11:36Z"
+      },
+      "spec": {
+        "finalizers": [
+          "kubernetes"
+        ]
+      },
+      "status": {
+        "phase": "Active"
+      }
+    },
+    {
+      "metadata": {
+        "name": "ingress-nginx",
+        "selfLink": "/api/v1/namespaces/ingress-nginx",
+        "uid": "14ee50e2-8792-11e9-af58-000c299777e4",
+        "resourceVersion": "29223",
+        "creationTimestamp": "2019-06-05T13:01:49Z",
+        "labels": {
+          "app.kubernetes.io/name": "ingress-nginx",
+          "app.kubernetes.io/part-of": "ingress-nginx"
+        },
+        "annotations": {
+          "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"v1\",\"kind\":\"Namespace\",\"metadata\":{\"annotations\":{},\"labels\":{\"app.kubernetes.io/name\":\"ingress-nginx\",\"app.kubernetes.io/part-of\":\"ingress-nginx\"},\"name\":\"ingress-nginx\"}}\n"
+        }
+      },
+      "spec": {
+        "finalizers": [
+          "kubernetes"
+        ]
+      },
+      "status": {
+        "phase": "Active"
+      }
+    },
+    {
+      "metadata": {
+        "name": "kube-public",
+        "selfLink": "/api/v1/namespaces/kube-public",
+        "uid": "3d269f0c-4be3-11e9-b569-000c299777e4",
+        "resourceVersion": "46",
+        "creationTimestamp": "2019-03-21T14:11:36Z"
+      },
+      "spec": {
+        "finalizers": [
+          "kubernetes"
+        ]
+      },
+      "status": {
+        "phase": "Active"
+      }
+    },
+    {
+      "metadata": {
+        "name": "kube-system",
+        "selfLink": "/api/v1/namespaces/kube-system",
+        "uid": "3d24e967-4be3-11e9-b569-000c299777e4",
+        "resourceVersion": "43",
+        "creationTimestamp": "2019-03-21T14:11:36Z"
+      },
+      "spec": {
+        "finalizers": [
+          "kubernetes"
+        ]
+      },
+      "status": {
+        "phase": "Active"
+      }
+    },
+    {
+      "metadata": {
+        "name": "test",
+        "selfLink": "/api/v1/namespaces/test",
+        "uid": "bd68601c-8a58-11e9-94f9-000c299777e4",
+        "resourceVersion": "129031",
+        "creationTimestamp": "2019-06-09T01:48:55Z"
+      },
+      "spec": {
+        "finalizers": [
+          "kubernetes"
+        ]
+      },
+      "status": {
+        "phase": "Active"
+      }
+    }
+  ]
+}
+```
+
+查看指定名称空间的deployments控制器
+
+```shell
+[root@k8s-master ~]# curl localhost:8080/apis/apps/v1/namespaces/default/deployments
+{
+  "kind": "DeploymentList",
+  "apiVersion": "apps/v1",
+  "metadata": {
+    "selfLink": "/apis/apps/v1/namespaces/default/deployments",
+    "resourceVersion": "516712"
+  },
+  "items": [
+    {
+      "metadata": {
+        "name": "myapp-deploy",
+        "namespace": "default",
+        "selfLink": "/apis/apps/v1/namespaces/default/deployments/myapp-deploy",
+        "uid": "f71800e4-8788-11e9-a2ff-000c299777e4",
+        "resourceVersion": "515429",
+        "generation": 5,
+        "creationTimestamp": "2019-06-05T11:56:34Z",
+        "labels": {
+          "app": "myapp"
+        },
+        "annotations": {
+          "deployment.kubernetes.io/revision": "3",
+          "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"apps/v1\",\"kind\":\"Deployment\",\"metadata\":{\"annotations\":{},\"name\":\"myapp-deploy\",\"namespace\":\"default\"},\"spec\":{\"replicas\":2,\"selector\":{\"matchLabels\":{\"app\":\"myapp\"}},\"template\":{\"metadata\":{\"labels\":{\"app\":\"myapp\"}},\"spec\":{\"containers\":[{\"image\":\"ikubernetes/myapp:v6\",\"imagePullPolicy\":\"IfNotPresent\",\"name\":\"myapp-deploy-demo\",\"ports\":[{\"containerPort\":80,\"name\":\"http\"}]}]}}}}\n"
+        }
+      },
+      "spec": {
+        "replicas": 2,
+        "selector": {
+          "matchLabels": {
+            "app": "myapp"
+          }
+        },
+        "template": {
+          "metadata": {
+            "creationTimestamp": null,
+            "labels": {
+              "app": "myapp"
+            }
+          },
+          "spec": {
+            "containers": [
+              {
+                "name": "myapp-deploy-demo",
+                "image": "ikubernetes/myapp:v6",
+                "ports": [
+                  {
+                    "name": "http",
+                    "containerPort": 80,
+                    "protocol": "TCP"
+                  }
+                ],
+                "resources": {
+
+                },
+                "terminationMessagePath": "/dev/termination-log",
+                "terminationMessagePolicy": "File",
+                "imagePullPolicy": "IfNotPresent"
+              }
+            ],
+            "restartPolicy": "Always",
+            "terminationGracePeriodSeconds": 30,
+            "dnsPolicy": "ClusterFirst",
+            "securityContext": {
+
+            },
+            "schedulerName": "default-scheduler"
+          }
+        },
+        "strategy": {
+          "type": "RollingUpdate",
+          "rollingUpdate": {
+            "maxUnavailable": "25%",
+            "maxSurge": "25%"
+          }
+        },
+        "revisionHistoryLimit": 10,
+        "progressDeadlineSeconds": 600
+      },
+      "status": {
+        "observedGeneration": 5,
+        "replicas": 2,
+        "updatedReplicas": 2,
+        "readyReplicas": 2,
+        "availableReplicas": 2,
+        "conditions": [
+          {
+            "type": "Progressing",
+            "status": "True",
+            "lastUpdateTime": "2019-06-09T01:36:32Z",
+            "lastTransitionTime": "2019-06-05T11:57:08Z",
+            "reason": "NewReplicaSetAvailable",
+            "message": "ReplicaSet \"myapp-deploy-8bcf678d7\" has successfully progressed."
+          },
+          {
+            "type": "Available",
+            "status": "True",
+            "lastUpdateTime": "2019-06-16T02:10:45Z",
+            "lastTransitionTime": "2019-06-16T02:10:45Z",
+            "reason": "MinimumReplicasAvailable",
+            "message": "Deployment has minimum availability."
+          }
+        ]
+      }
+    }
+  ]
+}
+```
+
+http request verb:  get post put delete
+
+api requests verb:  get list create update patch watch proxy redirect delete deletecollection
+
+resourse: 
+
+subresource
+
+namespace
+
+api group
+
+##### 服务账户
+
+服务账户是用于让Pod对象内的容器进程访问其它服务时提供身份认证信息的账户，一个Service Account资源一般由用户名及相关的secret对象组成。
+
+创建的每个容器中都自动关联了一个存储卷，并由其容器挂载至/var/run/secrets/kubernetes.io/serviceaccount目录下
+
+```shell
+/run/secrets/kubernetes.io/serviceaccount # pwd
+/var/run/secrets/kubernetes.io/serviceaccount
+/run/secrets/kubernetes.io/serviceaccount # ls
+ca.crt     namespace  token
+```
+
+挂载点目录中通常存在三个文件：ca.crt、namespace、token，其中token文件保存快乐Service Account的认证token，容器中的进程使用它向API Server发起连接请求，进而由认证插件完成用户认证并将其用户名传递给授权插件。
+
+每个Pod对象都只有一个服务账户，若创建Pod资源时未予以明确指定，则名为ServiceAccount的准入控制器会为其自动附加当前名称空间默认的服务账户，其名称为default。
+
+```shell
+[root@k8s-master manifests]# kubectl describe serviceaccounts default
+Name:                default
+Namespace:           default
+Labels:              <none>
+Annotations:         <none>
+Image pull secrets:  <none>
+Mountable secrets:   default-token-n8tvj
+Tokens:              default-token-n8tvj
+Events:              <none>
+```
+
+kubernetes系统通过三个独立的组件的相互协作来实现服务账户的自动化，三个组件为：Service Account准入控制器、令牌控制器（token controller）和Service Account账户控制器
+
+- Service Account控制器负责为名称空间管理相应的资源，并确保每个名称空间中都存在一个名为“default”的Service Account对象
+- Service Account准入控制器是API Server的一部分，负责在创建或更新Pod时对其按需进行Service Account对象相关信息的修改
+- 令牌控制器是controller-manager的子组件，工作于异步模式。负责监控Service Acount的相关操作，监控Secret对象的添加和删除操作
+
+###### 1、创建服务账户
+
+```shell
+[root@k8s-master ~]# kubectl create serviceaccount admin
+serviceaccount/admin created
+
+[root@k8s-master ~]# kubectl get sa  admin -o yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+...
+  name: admin
+  namespace: default
+  resourceVersion: "518757"
+  selfLink: /api/v1/namespaces/default/serviceaccounts/admin
+...
+secrets:
+- name: admin-token-qgrgq
+```
+
+通过资源配置文件创建
+
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: admin
+  namespace: default
+```
+
+自动生成一个token
+
+```shell
+[root@k8s-master ~]# kubectl get secret
+NAME                  TYPE                                  DATA   AGE
+default-token-n8tvj   kubernetes.io/service-account-token   3      88d
+sa-demo-token-52rw6   kubernetes.io/service-account-token   3      18h
+
+```
+
+###### **2、pod资源引用服务账户**
+
+pod.spec.serviceAccountName中指定
+
+```yaml
+# cat pod-serviceaccount-demo.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-serviceaccount
+spec:
+  serviceAccountName: admin
+  containers:
+  - name: myapp-sa
+    image: ikubernetes/myapp:v6
+    imagePullPolicy: IfNotPresent
+    ports:
+    - name: httpport
+      containerPort: 80
+
+```
+
+##### kubeconfig
+
+客户端配置文件
+
+主要组成：
+
+- clusters：集群列表，包含访问API Server的URL和所属集群的名称等
+- users：用户列表，包含访问API Server时的用户名和认证信息
+- contexts：kubelet的可用上下文列表，由用户列表中的某特定用户名称和集群列表中的某特定集群名称组合而成
+- current-context：kubelet当前使用的上下文名称，即上下文列表中的某个特定项。
+
+```yaml
+# kubectl config view
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: DATA+OMITTED
+    server: https://192.168.47.141:6443
+  name: kubernetes
+contexts:
+- context:
+    cluster: kubernetes
+    user: kubernetes-admin
+  name: kubernetes-admin@kubernetes
+current-context: kubernetes-admin@kubernetes
+kind: Config
+preferences: {}
+users:
+- name: kubernetes-admin
+  user:
+    client-certificate-data: REDACTED
+    client-key-data: REDACTED
+
+```
+
+kubeadm部署的kubernetes集群默认提供了拥有集群管理权限的kubeconfig配置文件/etc/kubernetes/admin.conf，可以copy到任何拥有kubelet的主机上用于管理整个集群。
+
+自定义用户账号，以授予非管理员级的集群资源使用权限：一是为用户创建专用私钥及证书文件，
+
+二是将其配置于某kubeconfig文件中。
+
+**实现过程**：
+
+一、为目标用户创建私钥及证书文件，保存在/etc/kubernetes/pki目录中
+
+1、生成私钥文件
+
+```shell
+[root@k8s-master pki]# pwd
+/etc/kubernetes/pki
+[root@k8s-master pki]# (umask 077;openssl genrsa -out kube-user1.key 2048)
+Generating RSA private key, 2048 bit long modulus
+...............................................+++
+......+++
+e is 65537 (0x10001
+
+```
+
+2、创建证书签署请求，-subj选项中CN的值将被kubeconfig作为用户名使用，O的值将被识别为用户组
+
+```shell
+[root@k8s-master pki]# openssl req -new -key kube-user1.key -out kube-user1.csr -subj "/CN=kube-user1/O=kubernetes"
+
+```
+
+3、使用部署kubernetes集群生成的CA签署证书
+
+```shell
+[root@k8s-master pki]# openssl x509 -req -in kube-user1.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out kube-user1.crt -days 3650
+Signature ok
+subject=/CN=kube-user1/O=kubernetes
+Getting CA Private Key
+
+```
+
+查看证书信息
+
+```shell
+[root@k8s-master pki]# openssl x509 -in kube-user1.crt -noout -text
+Certificate:
+    Data:
+        Version: 1 (0x0)
+        Serial Number:
+            b6:d4:98:23:d6:d6:91:3a
+    Signature Algorithm: sha256WithRSAEncryption
+        Issuer: CN=kubernetes
+        Validity
+            Not Before: Jun 16 07:24:16 2019 GMT
+            Not After : Jun 13 07:24:16 2029 GMT
+        Subject: CN=kube-user1, O=kubernetes
+        Subject Public Key Info:
+            Public Key Algorithm: rsaEncryption
+                Public-Key: (2048 bit)
+                Modulus:
+                    00:a8:97:37:eb:24:5a:58:86:f0:ce:e4:67:f5:e6:
+                    ...
+
+```
+
+二、为kube-user1生成设定kubeconfig配置文件。
+
+1、配置集群信息，抱哈集群名称、APIServerURL和CA证书，部署集群时已生成，可跳过此步
+
+2、配置客户端证书及密钥，用户名通过证书中Subject的CN值中自动提取。
+
+```shell
+[root@k8s-master pki]# kubectl config set-credentials kube-user1 --embed-certs=true --client-certificate=/etc/kubernetes/pki/kube-user1.crt --client-key=/etc/kubernetes/pki/kube-user1.key
+User "kube-user1" set.
+
+```
+
+3、配置context，用来组合cluster和credentials，即访问的集群的上下文，多个环境上下文，可用use-context来进行切换
+
+```shell
+[root@k8s-master pki]# kubectl config set-context kube-user1@kubernetes --cluster=kubernetes --user=kube-user1
+Context "kube-user1@kubernetes" created.
+
+```
+
+4、指定要使用的上下文context，切换为以kube-user1访问集群
+
+```shell
+[root@k8s-master pki]# kubectl config use-context kube-user1@kubernetes
+Switched to context "kube-user1@kubernetes".
+
+```
+
+5、测试
+
+访问集群资源
+
+```shell
+[root@k8s-master pki]# kubectl get pod
+Error from server (Forbidden): pods is forbidden: User "kube-user1" cannot list resource "pods" in API group "" in the namespace "default"
+
+```
+
+报错，因为并未获得集群资源的访问权限。
+
+切换回管理员账户
+
+```shell
+[root@k8s-master pki]# kubectl config use-context kubernetes-admin@kubernetes
+Switched to context "kubernetes-admin@kubernetes".
+
+```
+
+
+
+##### RBAC基于角色的访问控制
+
+Role-Based Access Control
+
+User是一个独立访问计算机系统中的数据或者用数据表示的其它资源的主体（Subject）.Role是指一个组织或任务中的工作或者位置，它代表了一种权利、资格和责任.Permission（许可）是允许对一个或多个 客体(Object)执行的操作。一个用户可经授权而拥有多个角色，一个角色可由多个用户构成；每个角色可拥有多种许可，每个许可也可授权给多个不同的角色。每个操作可施加于多个客体，每个客体也可以接受多个操作
+
+RBAC的基于“角色”（Role）这一核心组件实现了权限指派，具体实现中，它为账号赋予一到多个角色从而让其具有角色之上的权限，其中账号可以是用户账号、用户组、服务账号及其相关的组等，而同时关联至多个角色的账号所拥有的权限是多个角色之上的权限集合。
+
+RBAC是一种操作授权机制，用于界定subject能够或不能够verb哪个或哪类object。动作的发出者即subject，通常以账号为载体，既可以是user account，也可以是service account。verb用于表明要执行的具体操作，包括创建、删除、修改和查看等，而object则是指操作施加于的目标实体，对kerbernetes API来说主要是指各类的资源对象以及非资源型URL
+
+RBAC授权插件支持Role和ClusterRole两类角色，其中Role作用于名称空间级别，用于定义名称空间内的资源权限集合，ClusterRole则用于组织集群级别的资源权限集合，它们都是标准的API资源类型。
+
+###### Role和RoleBinding
+
+Role是一组许可（Permission）权限集合，它描述了对哪些资源可执行何种操作，资源配置清单中使用rules字段嵌套授权规则。
+
+```yaml
+# cat role-demo.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: role-pod-reader
+  namespace: default
+rules:
+- resources: ["pods"]
+  verbs: ["get","list","watch"]
+  apiGroups: [""]
+
+```
+
+RoleBinding用于将Role中定义的权限赋予一个或一组用户，它由一组主体，以及一个要引用来赋予这组主体的Role或ClusterRole组成。RoleBinding仅能够引用同一名称空间的Role对象完成授权。
+
+```yaml
+# cat rolebinding-demo.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: resources-reader
+  namespace: default
+subjects:
+- kind: User
+  name: kube-user1
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: role-pod-reader
+  apiGroup: rbac.authorization.k8s.io
+
+```
+
+执行完上述两个清单
+
+```shell
+[root@k8s-master RABC]# kubectl get role
+NAME              AGE
+role-pod-reader   13m
+[root@k8s-master RABC]# kubectl get rolebinding
+NAME               AGE
+resources-reader   8m47s
+
+```
+
+kube-user1用户便具有了读取default空间中pods资源的权限
+
+切换配置上下文到kube-user1用户进行测试
+
+```shell
+[root@k8s-master RABC]# kubectl config use-context kube
+kubernetes-admin@kubernetes  kube-user1@kubernetes
+[root@k8s-master RABC]# kubectl config use-context kube-user1@kubernetes
+Switched to context "kube-user1@kubernetes".
+[root@k8s-master RABC]# kubectl get pods -n default
+NAME                           READY   STATUS    RESTARTS   AGE
+myapp-deploy-8bcf678d7-8qxt4   1/1     Running   9          9d
+myapp-deploy-8bcf678d7-xz5ll   1/1     Running   9          9d
+myapp-nfs                      1/1     Running   7          6d23h
+myapp-sa                       1/1     Running   1          25h
+pod-cm-demo                    1/1     Running   5          4d17h
+pod-pvc-demo                   1/1     Running   6          6d4h
+redis-vol-nfs                  1/1     Running   7          6d23h
+# 读取services资源报权限不足
+[root@k8s-master RABC]# kubectl get service
+Error from server (Forbidden): services is forbidden: User "kube-user1" cannot list resource"services" in API group "" in the namespace "default"
+
+```
+
