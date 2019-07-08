@@ -1,0 +1,25 @@
+server {
+	listen 80;
+	server_name www.upload.com;
+	root /htdocs;
+	index index.php index.html;
+
+	location / {
+		
+	}
+
+    location ~* \.php$ {
+        fastcgi_pass 127.0.0.1:9000;
+        #fastcgi_param  SCRIPT_FILENAME  /htdocs$fastcgi_script_name;
+        fastcgi_param  SCRIPT_FILENAME  $document_root$fastcgi_script_name;
+        #try_files $uri $uri/ /index.php?$query_string;
+        include        fastcgi_params;
+        fastcgi_index index.php;
+        #fastcgi_cache fcgicache;
+        fastcgi_cache_key $request_uri;
+        fastcgi_cache_valid 200 302 10m;
+        fastcgi_cache_valid 301 1h;
+        fastcgi_cache_valid any 1m;
+    }
+
+}

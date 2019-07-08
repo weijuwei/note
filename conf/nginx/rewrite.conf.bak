@@ -1,0 +1,27 @@
+server {
+	listen 80;
+	root /htdocs;
+	server_name 192.168.1.201;
+	index index.html;
+
+	location ~ ^/break {
+		rewrite ^/break /test/ break;
+	}
+
+	location ~ ^/last {
+		rewrite ^/last /test/ last;
+	}
+
+	location ~ ^/test/ {
+		default_type application/json;
+		return 200 '{"status":"success"}';
+	}
+
+	location ~ ^/redirect {
+		rewrite ^/redirect  http://www.baidu.com redirect;
+	}
+
+	location ~ ^/permanent {
+		rewrite ^/permanent  http://www.baidu.com permanent;
+	}
+}
