@@ -155,3 +155,4 @@ mysql> UNINSTALL SONAME 'semisync_slave';
 # 重启slave IO_THREAD线程
 
 ```
+

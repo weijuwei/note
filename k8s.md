@@ -3159,3 +3159,198 @@ Error from server (Forbidden): services is forbidden: User "kube-user1" cannot l
 
 ```
 
+#### 网络模型
+
+##### flannel网络插件
+Flannel是一种基于overlay网络的跨主机容器网络解决方案，也就是将TCP数据包封装在另一种网络包里面进行路由转发和通信。
+flannel为每个host分配一个subnet，容器从这个subnet中分配IP，这些IP可以在host间路由，容器间无须使用nat和端口映射即可实现跨主机通信，每个subnet都是从一个更大的IP池中划分的，flannel会在每个主机上运行一个叫flannel的agent，其职责就是从池子中分配subnet。
+flannel使用etcd存放网络配置，已分配subnet、host的IP等信息。保存在/coreos.com/network/config的键下。
+flannel数据包在主机间转发是由backend实现的，支持UDP、Vxlan、host-gw、AWS VPC和GCE路由等多种backend。
+- VxLAN： 使用内核中的VxLAN模块封装报文，并通过隧道转发机制承载跨节点的Pod通信
+- host-gw: 即Host GateWay，它通过节点上创建到达目标容器地址的路由直接完成报文转发，转发性能较好。此种方式要求各节点必须在同一个二层网络中。
+- UDP：使用普通UDP报文封装完成隧道转发，性能较低
+
+
+VxLAN和Directrouting后端
+```shell
+# configmap中kube-flannel-cfg的片段默认vxlan后端
+  net-conf.json: |
+    {
+      "Network": "10.244.0.0/16",
+      "Backend": {
+        "Type": "vxlan"
+      }
+    }
+
+# 路由表信息
+[root@k8s-master network]# ip route
+default via 192.168.47.2 dev ens33 proto static metric 100
+10.244.0.0/24 dev cni0 proto kernel scope link src 10.244.0.1
+10.244.1.0/24 via 10.244.1.0 dev flannel.1 onlink
+10.244.2.0/24 via 10.244.2.0 dev flannel.1 onlink
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1
+192.168.47.0/24 dev ens33 proto kernel scope link src 192.168.47.141 metric 100
+#############################################################
+# 修改为Directrouting后端
+  net-conf.json: |
+    {
+      "Network": "10.244.0.0/16",
+      "Backend": {
+        "Type": "vxlan",
+        "Directrouting": true
+      }
+    }
+ # 再次查看路由表信息
+[root@k8s-master network]# ip route
+default via 192.168.47.2 dev ens33 proto static metric 100
+10.244.0.0/24 dev cni0 proto kernel scope link src 10.244.0.1
+10.244.1.0/24 via 192.168.47.142 dev ens33
+10.244.2.0/24 via 192.168.47.143 dev ens33
+172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1
+192.168.47.0/24 dev ens33 proto kernel scope link src 192.168.47.141 metric 100
+```
+
+##### 网络策略
+
+网络策略用于控制分组的Pod资源彼此之间如何进行通信，以及分组的Pod资源如何与其它网络端点进行通信的规范，为kubernetes实现更为精细的流量控制，实现租户隔离机制。使用标准的资源对象NetworkPolicy供管理员按需定义网络访问控制策略。
+
+策略控制器用于监控创建Pod时所生成的新API端点，并按需为其附加网络策略。当发生需要配置策略的事件时，侦听器会监视到变化，控制器随即响应以进行接口配置和策略应用。
+
+Pod的网络流量包含Ingress和Egress两种方向，每种方向的控制策略包含“允许”和“禁止”两种。
+
+###### 部署Canal提供网络策略功能
+
+将calico和flannel结合起来最为网络解决方案
+
+> https://docs.projectcalico.org/v3.8/getting-started/kubernetes/installation/flannel
+
+```shell
+[root@k8s-master ~]# kubectl apply -f https://docs.projectcalico.org/v3.8/manifests/canal.yaml
+
+# 会拉取以下三个镜像
+[root@k8s-master ~]# docker images | grep "^ca" | awk '{print$1":"$2}'
+calico/node:v3.8.0
+calico/cni:v3.8.0
+calico/pod2daemon-flexvol:v3.8.0
+```
+
+查看pod生成情况
+
+```shell
+[root@k8s-master ~]# kubectl get pod -n kube-system
+NAME                                   READY   STATUS    RESTARTS   AGE
+canal-2qlq2                            2/2     Running   0          9m34s
+canal-dsh22                            2/2     Running   0          39s
+canal-rpm6t                            2/2     Running   0          9m34s
+```
+
+定义网络策略资源清单
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+spec:
+  podSelector:  # 必须字段，选定应用网络策略的pod，字段为空，则选定当前namespace所有pod
+    matchLabels：
+    matchExpressions：
+  egress: # 列出所有应用在选定的pods上的出站规则，如果字段为空，则限制所有出站流量
+  ingress: # 列出所有应用在选定的pods上的入站规则，如果字段为空，则不允许所有入站流量
+  policyTypes:  # 列出关联的网络策略类型
+  - Egress: # 出站规则类型
+      ports:  # 列出出站的目标端口
+        - port:
+          protocol:
+      to:  # 列出此规则选定pods的出站目标
+        - ipBlock:
+          namespaceSelector:
+          podSelector:
+  - Ingress: # 入站规则类型
+      ports:  # 列出能访问选定pods的端口
+        - port:
+          protocol:
+      from:  # 列出此规则能访问选定pods的源
+        - ipBlock:
+          namespaceSelector:
+          podSelector:
+```
+
+
+
+
+
+测试
+
+```shell
+# 建立两个namespace dev和prod，并分别创建以Pod实例
+[root@k8s-master flannel]# kubectl get pod -n dev -o wide
+NAME        READY   STATUS    RESTARTS   AGE    IP           NODE        NOMINATED NODE   READINESS GATES
+myapp-pod   1/1     Running   0          113m   10.244.2.3   k8s-node2   <none>           <none>
+[root@k8s-master flannel]# kubectl get pod -n prod -o wide
+NAME        READY   STATUS    RESTARTS   AGE    IP           NODE        NOMINATED NODE   READINESS GATES
+myapp-pod   1/1     Running   0          113m   10.244.1.2   k8s-node1   <none>           <none>
+
+# 新建一个networkpolicy策略清单，拒绝所有进来的流量ingress
+[root@k8s-master flannel]# cat deny-all-ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-all-ingress
+spec:
+  podSelector: {}
+  # 不显示指定ingress字段，默认拒绝所有
+  policyTypes:
+  - Ingress 
+
+# 在dev名称空间能应用策略
+[root@k8s-master flannel]# kubectl apply -f deny-all-ingress.yaml -n dev
+networkpolicy.networking.k8s.io/deny-all-ingress created
+
+# 在另一个名称空间prod的Pod内访问dev中的Pod实例 ，无法ping通
+[root@k8s-master ~]# kubectl exec -it -n prod myapp-pod -- ping 10.244.2.3
+PING 10.244.2.3 (10.244.2.3): 56 data bytes
+
+
+# 修改策略
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-all-ingress
+spec:
+  podSelector: {}
+  ingress:
+  - {}    # 放行所有入站流量
+  policyTypes:
+  - Ingress  # 默认拒绝所有
+
+# 应用后立刻可以ping通
+[root@k8s-master ~]# kubectl exec -it -n prod myapp-pod -- ping 10.244.2.3
+PING 10.244.2.3 (10.244.2.3): 56 data bytes
+
+
+
+
+64 bytes from 10.244.2.3: seq=453 ttl=62 time=0.827 ms
+64 bytes from 10.244.2.3: seq=454 ttl=62 time=0.676 ms
+64 bytes from 10.244.2.3: seq=455 ttl=62 time=0.522 ms
+64 bytes from 10.244.2.3: seq=456 ttl=62 time=0.649 ms
+64 bytes from 10.244.2.3: seq=457 ttl=62 time=0.740 ms
+64 bytes from 10.244.2.3: seq=458 ttl=62 time=0.509 ms
+64 bytes from 10.244.2.3: seq=459 ttl=62 time=0.641 ms
+
+
+# 以下策略，放行入站的80端口的TCP，拒绝其它所有协议
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-tcp
+spec:
+  podSelector: {}
+  ingress:
+  - ports:
+    - protocol: TCP
+      port: 80
+  policyTypes:
+  - Ingress
+```
+
