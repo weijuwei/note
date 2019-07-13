@@ -3354,3 +3354,293 @@ spec:
   - Ingress
 ```
 
+```yaml
+[root@k8s-master flannel]# cat nginx-allow.yaml
+# 规则应用在prod名称空间中持有标签app=nginx的pod上
+# 放行来自持有标签ns=dev的名称空间访问80端口的流量
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: nginx-allow
+  namespace: prod
+spec:
+  podSelector:
+    matchLabels:
+      app: nginx
+  ingress:
+  - ports:
+    - port: 80
+  - from:
+    - namespaceSelector:
+         matchLabels:
+           ns: dev
+  egress:
+  - {}
+  policyTypes:
+  - Ingress
+  - Egress
+  
+[root@k8s-master scheduler]# cat ../flannel/myapp-allow.yaml
+# 放行prod名称空间中来自nginx pod的发往myapp pod的80/TCP访问流量
+# 同时放行myapp发往nginx pod的所有流量。
+# 允许myapp pod与prod名称空间的任何Pod进行互访。
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: myapp-allow
+  namespace: dev
+spec:
+  podSelector:
+    matchLabels:
+      app: myapp
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: nginx
+    ports:
+    - port: 80
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          ns: prod
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: nginx
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          ns: prod
+  policyTypes:
+  - Ingress
+  - Egress
+```
+
+#### Pod资源调度
+
+APIServer接收客户到提交Pod对象创建请求后的操作过程后，会由调度器程序从当前集群中选择一个可用的最佳节点来接收并运行。创建Pod对象时，调度器负责为每一个未经调度的Pod资源、基于一系列的规则从集群中挑选一个合适的节点来运行它。调度过程中，调度器不会修改Pod资源，而是从中读取数据，并根据配置的策略挑选出最合适的节点，而后通过API调用将Pod绑定至挑选出的节点之上以完成调度过程。
+
+调度操作：
+
+- 节点预选（Predicate）：检查每个节点，过滤掉不符合条件的节点
+- 节点优选（Priority）：对预选节点进行优先级排序
+- 节点择优（Select）：对优选节点进行择优选择
+
+##### 节点亲和调度
+
+节点亲和调度调度程序用来确定Pod对象调度位置的一组规则，这些规则基于节点上的自定义标签和Pod对象上指定的标签选择器进行定义。
+
+pod.spec.affinity.nodeAffinity
+
+类型：
+
+- 硬亲和性（required）：强制性规则，必须满足的规则，不满足则处于Pending状态
+
+- 软亲和性（preferred）：非强制性，尽量满足需求即可，
+
+定义节点规则：
+
+- 为节点配置合乎需求的标签
+- 为Pod对象定义合理的标签选择器
+
+**节点硬亲和性**
+
+```shell
+# Pod将被调度至有zone标签且值为foo的节点上
+[root@k8s-master scheduler]# cat nodeselector-pod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nodeaffinity-nodeselect
+spec:
+  containers:
+  - name: myapp
+    image: ikubernetes/myapp:v7
+    imagePullPolicy: IfNotPresent
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - {key: zone, operator: In, values: ["foo"]}
+# pod一直处于pending状态
+[root@k8s-master scheduler]# kubectl get pod
+NAME                      READY   STATUS    RESTARTS   AGE
+nodeaffinity-nodeselect   0/1     Pending   0          8s
+
+# 为node1节点打上label
+[root@k8s-master scheduler]# kubectl label nodes k8s-node1 zone=foo
+node/k8s-node1 labeled
+
+# 查看pod被调度到node1节点上
+[root@k8s-master scheduler]# kubectl get pod
+NAME                      READY   STATUS              RESTARTS   AGE
+nodeaffinity-nodeselect   0/1     ContainerCreating   0          3m59s
+[root@k8s-master scheduler]# kubectl get pod -o wide
+nodeaffinity-nodeselect   1/1     Running   0          5m23s   10.244.1.9   k8s-node1   <none>           <none>
+```
+
+**节点软亲和性**
+
+节点软亲和性为节点机制提供了一种柔性控制逻辑，被调度的Pod对象不再是“必须”而是“应该”放置于某些特定节点之上，条件不满足时，也能接受被编排于其它不符合的节点上，还提供倾向性权重weight，以便于用户定义其优先级。
+
+```shell
+[root@k8s-master scheduler]# cat nodeselector-pod-pref.yaml
+# Pod更倾向被调度到有zone=foo标签的节点上，其权重为60，
+# 如果节点同时具有zone=foo标签，且存在ssd标签（权重为30）,
+# 则该节点的权重将会为60+30，pod将会被调度该节点
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nodeaffinity-nodeselect-pref
+spec:
+  containers:
+  - name: myapp
+    image: ikubernetes/myapp:v7
+    imagePullPolicy: IfNotPresent
+  affinity:
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - preference:
+          matchExpressions:
+          - key: zone
+            operator: In
+            values:
+            - foo
+        weight: 60
+      - preference:
+          matchExpressions:
+          - key: ssd
+            operator: Exists
+            values: []
+        weight: 30
+
+[root@k8s-master scheduler]# kubectl label nodes k8s-node1 zone=foo
+[root@k8s-master scheduler]# kubectl label nodes k8s-node2 ssd=true
+
+[root@k8s-master scheduler]# kubectl apply -f nodeselector-pod-pref.yaml
+
+# 会被调度到node1上
+[root@k8s-master scheduler]# kubectl get pod -o wide
+NAME                           READY   STATUS    RESTARTS   AGE   IP            NODE        NOMINATED NODE   READINESS GATES
+nodeaffinity-nodeselect-pref   1/1     Running   0          10s   10.244.1.15   k8s-node1   <none>           <none>
+
+# 给node2节点打上zone=foo标签
+[root@k8s-master scheduler]# kubectl label nodes k8s-node2 zone=foo
+
+[root@k8s-master scheduler]# kubectl apply -f nodeselector-pod-pref.yaml
+
+# 被调度到node2节点上
+[root@k8s-master scheduler]# kubectl get pod -o wide
+NAME                           READY   STATUS    RESTARTS   AGE    IP            NODE        NOMINATED NODE   READINESS GATES
+nodeaffinity-nodeselect-pref   1/1     Running   0          9m5s   10.244.2.10   k8s-node2   <none>           <none>
+```
+
+##### Pod资源亲和调度
+
+把一些pod对象组织在相近的位置，反之，成为反亲和性（anti-affinity）
+
+Pod亲和性调度需要各相关的Pod对象运行于“同一位置“，而反亲和性调度则要求它们不能运行于”同一位置“。取决于节点的位置拓扑 spec.affinity.podAffinity.requiredDuringSchedulingIgnoredDuringExecution.topologyKey 
+
+pod.spec.affinity.podAffinity
+
+```yaml
+[root@k8s-master scheduler]# cat podselector-pod-require.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: podselector-label-require-1
+  labels:
+    app: myapp
+spec:
+  containers:
+  - name: myapp
+    image: ikubernetes/myapp:v7
+    imagePullPolicy: IfNotPresent
+---
+# pod对象将被调度到持有app=myapp的pod对象所在节点
+apiVersion: v1
+kind: Pod
+metadata:
+  name: podselector-label-require-2
+spec:
+  containers:
+  - name: busybox
+    image: busybox:latest
+    imagePullPolicy: IfNotPresent
+    command: ["sh","-c","sleep 3600"]
+  affinity:
+    podAffinity:
+    # 硬亲和
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchLabels: {app: myapp}
+        topologyKey: kubernetes.io/hostname
+```
+
+pod.spec.affinity.podAffinity反亲和性
+
+```yaml
+# pod对象将被调度到不包含有app=myapp的pod对象所在节点
+apiVersion: v1
+kind: Pod
+metadata:
+  name: podselector-label-require-2
+spec:
+  containers:
+  - name: busybox
+    image: busybox:latest
+    imagePullPolicy: IfNotPresent
+    command: ["sh","-c","sleep 3600"]
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchLabels: {app: myapp}
+        topologyKey: kubernetes.io/hostname
+```
+
+##### 污点和容忍度
+
+污点（taints）是定义在节点之上的键值型属性数据，用于让节点拒绝将pod调度运行于其上，除非该Pod对象具有接纳节点污点的容忍度。
+
+污点effect类型：
+
+- Noschedule:不能容忍此污点的新Pod对象，不能被调度此节点，节点现有Pod不受影响，属于强制性约束
+- PreferNoSchedule：非强制性约束，不能容忍此污点的新Pod对象尽量不要调度至此节点，不过无其它节点可供调度时，可接受响应的Pod对象
+- NoExecute：不能容忍此污点的新Pod对象，不可被调度至此节点，属于强制型约束关系，对现存的Pod有影响
+
+```shell
+# 给节点node2定义污点 类型为NoSchedule
+[root@k8s-master scheduler]# kubectl taint node k8s-node2 node-type=production:NoSchedule
+
+# deployment的pod对象都被调度到node1上
+[root@k8s-master scheduler]# kubectl get pod -o wide
+NAME                           READY   STATUS    RESTARTS   AGE     IP            NODE        NOMINATED NODE   READINESS GATES
+myapp-deploy-8bcf678d7-2tdlp   1/1     Running   0          7m31s   10.244.1.21   k8s-node1   <none>           <none>
+myapp-deploy-8bcf678d7-p9k9k   1/1     Running   0          7m30s   10.244.1.22   k8s-node1   <none>           <none>
+```
+
+```shell
+# 将节点node1污点effect类型改为NoExecute
+# 可查看到，原本在node1上的pod最终被驱逐，转移到node2上
+[root@k8s-master scheduler]# kubectl taint node k8s-node1 node-type=production:NoExecute
+node/k8s-node1 tainted
+[root@k8s-master scheduler]# kubectl get pod -o wide
+NAME                           READY   STATUS              RESTARTS   AGE    IP            NODE        NOMINATED NODE   READINESS GATES
+myapp-deploy-8bcf678d7-2tdlp   1/1     Terminating         0          8m5s   10.244.1.21   k8s-node1   <none>           <none>
+myapp-deploy-8bcf678d7-p9k9k   1/1     Terminating         0          8m4s   10.244.1.22   k8s-node1   <none>           <none>
+myapp-deploy-8bcf678d7-sfzlw   0/1     Pending             0          1s     <none>        k8s-node2   <none>           <none>
+myapp-deploy-8bcf678d7-zwdxr   0/1     ContainerCreating   0          1s     <none>        k8s-node2   <none>           <none
+
+[root@k8s-master scheduler]# kubectl get pod -o wide
+NAME                           READY   STATUS    RESTARTS   AGE   IP            NODE        NOMINATED NODE   READINESS GATES
+myapp-deploy-8bcf678d7-sfzlw   1/1     Running   0          35s   10.244.2.17   k8s-node2   <none>           <none>
+myapp-deploy-8bcf678d7-zwdxr   1/1     Running   0          35s   10.244.2.16   k8s-node2   <none>           <none>
+```
+
+容忍度（tolerations）是定义在Pod对象上的键值型属性数据，用于配置其可容忍的节点污点，而且调度器仅能将Pod对象调度至其能够容忍该节点污点的节点之上。
+
+pod.spec.tolerations定义
