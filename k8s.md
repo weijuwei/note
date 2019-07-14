@@ -3644,3 +3644,254 @@ myapp-deploy-8bcf678d7-zwdxr   1/1     Running   0          35s   10.244.2.16   
 容忍度（tolerations）是定义在Pod对象上的键值型属性数据，用于配置其可容忍的节点污点，而且调度器仅能将Pod对象调度至其能够容忍该节点污点的节点之上。
 
 pod.spec.tolerations定义
+
+#### 资源指标
+
+##### 部署metres-server
+
+1、拉取相关docker镜像
+
+```shell
+[root@k8s-master resource_metrics]# docker pull chrisxxy/metrics-server-amd64
+[root@k8s-master resource_metrics]# docker tag chrisxxy/metrics-server-amd64:latest k8s.gcr.io/metrics-server-amd64:v0.3.3
+
+[root@k8s-master resource_metrics]# docker pull zhegeshijiehuiyouai/addon-resizer:1.8.5
+[root@k8s-master resource_metrics]# docker tag zhegeshijiehuiyouai/addon-resizer:1.8.5 k8s.gcr.io/addon-resizer:1.8.5
+```
+
+2、下载yaml配置清单
+> https://github.com/kubernetes/kubernetes/tree/master/cluster/addons/metrics-server
+```shell
+[root@k8s-master resource_metrics]# ls
+auth-delegator.yaml  metrics-apiservice.yaml         metrics-server-service.yaml
+auth-reader.yaml     metrics-server-deployment.yaml  resource-reader.yaml
+```
+
+3、修改清单文件
+
+> https://github.com/kubernetes-incubator/metrics-server/issues/131
+> http://www.lampnick.com/php/831
+
+修改metrics-server-deployment.yaml
+```yaml
+ command:
+ - /metrics-server
+ - --metric-resolution=30s
+ # These are needed for GKE, which doesn't support secure communication yet.
+ # Remove these lines for non-GKE clusters, and when GKE supports token-based auth.
+ #- --kubelet-port=10255
+ #- --deprecated-kubelet-completely-insecure=true
+ - --kubelet-insecure-tls
+ - --kubelet-preferred-address-types=InternalIP
+ #- --kubelet-preferred-address-types=InternalIP,Hostname,InternalDNS,ExternalDNS,ExternalIP
+
+ command:
+ - /pod_nanny
+ - --config-dir=/etc/config
+ #- --cpu={{ base_metrics_server_cpu }}
+ - --extra-cpu=0.5m
+ #- --memory={{ base_metrics_server_memory }}
+ #- --extra-memory={{ metrics_server_memory_per_node }}Mi
+ - --threshold=5
+ - --deployment=metrics-server-v0.3.3
+ - --container=metrics-server
+ - --poll-period=300000
+ - --estimator=exponential
+ # Specifies the smallest cluster (defined in number of nodes)
+ # resources will be scaled to.
+ - --minClusterSize=2
+```
+修改resource-reader.yaml为：
+```yaml
+ resources:
+ - pods
+ - nodes
+ - nodes/stats
+ - namespaces
+```
+4、应用相关yaml清单文件，创建相关资源
+```shell
+[root@k8s-master resource_metrics]# kubectl apply -f .
+
+[root@k8s-master resource_metrics]# kubectl get pod -n kube-system -l k8s-app=metrics-server
+NAME                                     READY   STATUS    RESTARTS   AGE
+metrics-server-v0.3.3-69785db8cf-q94tx   2/2     Running   0          14m
+```
+
+5、验证可用性
+
+```shell
+[root@k8s-master resource_metrics]# kubectl top nodes
+NAME         CPU(cores)   CPU%   MEMORY(bytes)   MEMORY%
+k8s-master   418m         10%    1426Mi          65%
+k8s-node1    107m         2%     440Mi           25%
+k8s-node2    156m         3%     664Mi           38%
+
+[root@k8s-master resource_metrics]# kubectl top pods -n kube-system
+NAME                                     CPU(cores)   MEMORY(bytes)
+canal-45bgv                              39m          56Mi
+canal-dnkq7                              42m          59Mi
+canal-fpnd7                              46m          55Mi
+coredns-86c58d9df4-cf75v                 4m           16Mi
+coredns-86c58d9df4-d9jh4                 5m           25Mi
+etcd-k8s-master                          53m          109Mi
+kube-apiserver-k8s-master                345m         560Mi
+kube-controller-manager-k8s-master       87m          93Mi
+kube-flannel-ds-amd64-2fknn              3m           23Mi
+kube-flannel-ds-amd64-gkc79              8m           21Mi
+kube-flannel-ds-amd64-tkdct              4m           23Mi
+kube-proxy-2fzzf                         8m           24Mi
+kube-proxy-66dt2                         10m          25Mi
+kube-proxy-ddfld                         7m           30Mi
+kube-scheduler-k8s-master                30m          28Mi
+kubernetes-dashboard-57df4db6b-sglgf     1m           15Mi
+metrics-server-v0.3.3-69785db8cf-q94tx   8m           26Mi
+
+[root@k8s-master resource_metrics]# kubectl get --raw="/apis/metrics.k8s.io/v1beta1/nodes" | jq .
+{
+  "kind": "NodeMetricsList",
+  "apiVersion": "metrics.k8s.io/v1beta1",
+  "metadata": {
+    "selfLink": "/apis/metrics.k8s.io/v1beta1/nodes"
+  },
+  "items": [
+    {
+      "metadata": {
+        "name": "k8s-node1",
+        "selfLink": "/apis/metrics.k8s.io/v1beta1/nodes/k8s-node1",
+        "creationTimestamp": "2019-07-14T05:26:21Z"
+      },
+      "timestamp": "2019-07-14T05:26:05Z",
+      "window": "30s",
+      "usage": {
+        "cpu": "108548517n",
+        "memory": "451324Ki"
+      }
+    },
+    {
+      "metadata": {
+        "name": "k8s-node2",
+        "selfLink": "/apis/metrics.k8s.io/v1beta1/nodes/k8s-node2",
+        "creationTimestamp": "2019-07-14T05:26:21Z"
+      },
+      "timestamp": "2019-07-14T05:26:06Z",
+      "window": "30s",
+      "usage": {
+        "cpu": "144107636n",
+        "memory": "679848Ki"
+      }
+    },
+    {
+      "metadata": {
+        "name": "k8s-master",
+        "selfLink": "/apis/metrics.k8s.io/v1beta1/nodes/k8s-master",
+        "creationTimestamp": "2019-07-14T05:26:21Z"
+      },
+      "timestamp": "2019-07-14T05:26:06Z",
+      "window": "30s",
+      "usage": {
+        "cpu": "423737488n",
+        "memory": "1460572Ki"
+      }
+    }
+  ]
+}
+```
+
+#### Helm程序包管理器
+
+Helm将kubernetes的资源打包到一个Charts中，制作并测试完成的各个Charts将保存到Charts仓库进行存储和分发，还可实现可配置的发布，它支持应用配置的版本管理，简化了kubernetes部署应用的版本控制、打包、发布、删除和更新等操作。
+
+相关术语：
+
+- Charts：helm程序包，包含了运行一个kubernetes应用所需的镜像、依赖关系和资源定义
+- Repository：Charts仓库，用于集中存储和分发Charts
+- Config：应用程序实例化安装运行时使用的配置信息
+- Release：应用程序实例化配置后运行于kubernetes集群中的一个Charts实例；在同一个集群上，一个Charts可以使用不同的config重复安装多次，每次安装都会创建一个新的Release
+
+组成：
+
+- Helm客户端：命令行客户端工具，和tiller server进行交互，管理仓库
+- Tiller服务器：接收helm客户端请求，和api server进行交互
+- Charts仓库
+
+##### 部署Helm
+
+1、获取Helm包
+
+```shell
+[root@k8s-master helm]# wget https://get.helm.sh/helm-v2.14.2-linux-amd64.tar.gz
+[root@k8s-master helm]# tar xf helm-v2.14.2-linux-amd64.tar.gz
+[root@k8s-master helm]# cp linux-amd64/helm /usr/bin/
+```
+
+2、rbac-config配置清单
+
+>  https://github.com/helm/helm/blob/master/docs/rbac.md
+
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tiller
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: tiller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: tiller
+    namespace: kube-system
+```
+
+应用清单文件
+
+```shell
+[root@k8s-master helm]# kubectl apply -f rbac-tiller-config.yaml
+serviceaccount/tiller created
+clusterrolebinding.rbac.authorization.k8s.io/tiller created
+```
+
+3、安装tiller server
+
+拉取手动tiller镜像（访问gcr可忽略）
+
+```shell
+[root@k8s-master repository]# docker pull jessestuart/tiller:v2.14.2-amd64
+[root@k8s-master repository]# docker tag jessestuart/tiller:v2.14.2 gcr.io/kubernetes-helm/tiller:v2.14.2
+```
+
+```shell
+[root@k8s-master repository]# helm init --service-account tiller
+Updating repository file format...
+$HELM_HOME has been configured at /root/.helm.
+
+Tiller (the Helm server-side component) has been installed into your Kubernetes Cluster.
+
+Please note: by default, Tiller is deployed with an insecure 'allow unauthenticated users' policy.
+To prevent this, run `helm init` with the --tiller-tls-verify flag.
+For more information on securing your installation see: https://docs.helm.sh/using_helm/#securing-your-helm-installation
+```
+
+更换仓库源
+
+```shell
+[root@k8s-master repository]# helm repo add stable https://kubernetes.oss-cn-hangzhou.aliyuncs.com/charts
+"stable" has been added to your repositories
+
+[root@k8s-master repository]# helm repo update
+Hang tight while we grab the latest from your chart repositories...
+...Successfully got an update from the "stable" chart repository
+Update Complete.
+
+[root@k8s-master repository]# helm repo list
+NAME  	URL
+stable	https://kubernetes.oss-cn-hangzhou.aliyuncs.com/charts
+```
+
