@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-vol-configmap
+  namespace: default
+spec:
+  containers:
+    - name: myapp-vol-configmap
+      image: ikubernetes/myapp:v7
+      volumeMounts:
+        - name: nginx-config-demo
+          mountPath: /tmp
+  volumes:
+    - name: nginx-config-demo
+      configMap:
+        name: cm-demo

@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-cm-vol-demo
+spec:
+  containers:
+  - name: pod-cm-vol
+    image: ikubernetes/myapp:v6
+    imagePullPolicy: IfNotPresent
+    ports:
+    - containerPort: 80
+      name: http
+    volumeMounts:
+    - name: user
+      mountPath: /user/
+  volumes:
+  - name: user
+    configMap:
+      name: cm-demo

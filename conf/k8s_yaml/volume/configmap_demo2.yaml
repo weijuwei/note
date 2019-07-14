@@ -1,0 +1,13 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cm-file-demo
+  namespace: default
+data:
+  nginx-config-test-01: |
+    server{
+      listen 8080;
+      root /data/nginx/html
+      server_name example.com
+    }

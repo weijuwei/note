@@ -1,0 +1,36 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: myapp-stateful
+spec:
+  serviceName: myapp-stateful-svc
+  replicas: 2
+  selector:
+    matchLabels:
+      app: myapp-stateful-pod
+  template:
+    metadata:
+      labels:
+        app: myapp-stateful-pod
+    spec:
+      containers:
+      - name: myapp-stateful-pod
+        image: ikubernetes/myapp:v7
+        ports:
+          - containerPort: 80
+            name: web
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: myapp-stateful-svc
+  labels:
+    app: myapp-stateful-svc
+spec:
+  ports:
+  - port: 80
+    name: web
+  clusterIP: None
+  selector:
+    app: myapp-stateful-pod

@@ -1,0 +1,13 @@
+# 放行入站的TCP协议80端口，其它则被拒绝
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-tcp
+spec:
+  podSelector: {}
+  ingress:
+  - ports:
+    - protocol: TCP
+      port: 80
+  policyTypes:
+  - Ingress

@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-env
+spec:
+  containers:
+  - name: pod-env-demo
+    image: ikubernetes/myapp:v7
+    env:
+    - name: HELLO
+      value: World
+    - name: NIHAO
+      value: shijie

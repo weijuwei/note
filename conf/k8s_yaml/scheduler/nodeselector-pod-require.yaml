@@ -1,0 +1,16 @@
+# Pod将被调度至有zone标签且值为foo的节点
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nodeaffinity-nodeselect-require
+spec:
+  containers:
+  - name: myapp
+    image: ikubernetes/myapp:v7
+    imagePullPolicy: IfNotPresent
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - {key: zone, operator: In, values: ["foo"]}

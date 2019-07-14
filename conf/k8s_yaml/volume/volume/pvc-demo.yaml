@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc-demo
+  labels:
+   release: stable
+spec:
+  accessModes:
+  - ReadWriteMany
+  selector:
+    matchLabels:
+      release: stable
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 2Gi
+  storageClassName: slow

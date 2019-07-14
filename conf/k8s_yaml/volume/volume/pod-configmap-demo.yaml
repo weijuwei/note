@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-cm-demo
+spec:
+  containers:
+  - name: pod-cm
+    image: ikubernetes/myapp:v6
+    imagePullPolicy: IfNotPresent
+    ports:
+    - containerPort: 80
+      name: http
+    env:
+    - name: MYAPP_USER
+      valueFrom:
+        configMapKeyRef:
+          name: cm-demo
+          key: user
+    - name: MYAPP_PASS
+      valueFrom:
+        configMapKeyRef:
+          name: cm-demo
+          key: password

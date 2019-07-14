@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-pod
+  namespace: dev
+  labels:
+    app: myapp
+spec:
+  containers:
+  - name: myapp-pod
+    image: ikubernetes/myapp:v7
+    imagePullPolicy: IfNotPresent

@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-pod
+  namespace: prod
+  labels:
+    app: nginx
+spec:
+  containers:
+  - name: nginx-pod
+    image: nginx:latest
+    imagePullPolicy: IfNotPresent

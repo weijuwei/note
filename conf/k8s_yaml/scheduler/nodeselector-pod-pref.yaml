@@ -1,0 +1,28 @@
+# Pod更倾向被调度到有zone=foo标签的节点上，其权重为60，
+# 如果节点同时具有zone=foo标签，且存在ssd标签（权重为30）,
+# 则该节点的权重将会为60+30，pod将会被调度该节点
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nodeaffinity-nodeselect-pref
+spec:
+  containers:
+  - name: myapp
+    image: ikubernetes/myapp:v7
+    imagePullPolicy: IfNotPresent
+  affinity:
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - preference:
+          matchExpressions:
+          - key: zone
+            operator: In
+            values:
+            - foo
+        weight: 60 
+      - preference:
+          matchExpressions:
+          - key: ssd
+            operator: Exists
+            values: []
+        weight: 30

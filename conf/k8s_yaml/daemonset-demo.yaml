@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: myapp-ds
+  labels:
+    app: myapp-ds
+spec:
+  selector:
+    matchLabels:
+      app: myapp-ds
+  template:
+    metadata:
+      labels:
+        app: myapp-ds
+      name: myapp-ds
+    spec:
+      containers:
+      - name: myapp
+        image: ikubernetes/myapp:v6
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: DAEMONSET
+          value: myapp-daemonset

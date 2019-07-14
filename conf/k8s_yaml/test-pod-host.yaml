@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: host-demo
+  namespace: test-ns
+spec:
+  containers:
+  - name: host-demo
+    image: ikubernetes/myapp:v7
+  hostNetwork: true

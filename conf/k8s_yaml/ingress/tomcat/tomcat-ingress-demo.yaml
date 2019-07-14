@@ -1,0 +1,16 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  namespace: test
+  name: tomcat-ingress-demo
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: tomcat.example.io
+    http:
+      paths:
+      - path: /k8s
+        backend:
+          serviceName: tomcat-svc
+          servicePort: 80

@@ -1,0 +1,19 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: ingress-myapp-tls
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+spec:
+  tls:
+  - hosts:
+    - myapp.example.com
+    secretName: myapp-ingress-secret 
+  rules:
+  - host: myapp.example.com
+    http:
+      paths:
+      - path:
+        backend:
+          serviceName: myapp-svc
+          servicePort: 80

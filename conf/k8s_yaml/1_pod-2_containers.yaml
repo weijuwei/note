@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: two-containers
+spec:
+  containers:
+  - image: ikubernetes/myapp:v6
+    name: app1
+    imagePullPolicy: IfNotPresent
+  - image: busybox:latest
+    name: app2
+    imagePullPolicy: IfNotPresent
+    command: ["/bin/sh","-c","sleep 3600"]

@@ -1,0 +1,35 @@
+# 放行prod名称空间中来自nginx pod的发往myapp pod的80/TCP访问流量
+# 同时放行myapp发往nginx pod的所有流量。
+# 允许myapp pod与prod名称空间的任何Pod进行互访。
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: myapp-allow
+  namespace: dev
+spec:
+  podSelector:
+    matchLabels:
+      app: myapp
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: nginx
+    ports:
+    - port: 80
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          ns: prod
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: nginx
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          ns: prod
+  policyTypes:
+  - Ingress
+  - Egress

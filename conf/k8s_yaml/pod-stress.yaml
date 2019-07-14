@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: stress-pod
+spec:
+  containers:
+  - name: stress-demo
+    image: ikubernetes/stress-ng:latest
+    imagePullPolicy: IfNotPresent
+    command: ["/usr/bin/stress-ng","-m 1","-c 1","-metrics-brief"]
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "200m"

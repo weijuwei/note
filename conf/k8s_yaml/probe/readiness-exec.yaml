@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: readiness-exec
+  labels:
+    test: readiness
+spec:
+  containers:
+  - name: readiness-demo
+    image: busybox:latest
+    imagePullPolicy: IfNotPresent
+    args: ["/bin/sh","-c","while true; do rm -f /tmp/ready; sleep 30; touch /tmp/ready; sleep 300; done"]
+    readinessProbe:
+      exec:
+        command: ["test","-e","/tmp/ready"]
+      initialDelaySeconds: 5
+      periodSeconds: 5
