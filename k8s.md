@@ -3895,3 +3895,9 @@ NAME  	URL
 stable	https://kubernetes.oss-cn-hangzhou.aliyuncs.com/charts
 ```
 
+```shell
+[root@k8s-master ~]# helm version
+Client: &version.Version{SemVer:"v2.14.2", GitCommit:"a8b13cc5ab6a7dbef0a58f5061bcc7c0c61598e7", GitTreeState:"clean"}
+Server: &version.Version{SemVer:"v2.14.2+unreleased", GitCommit:"55193089e67207363e6f448054113b5a36649d74", GitTreeState:"dirty"}
+```
+
