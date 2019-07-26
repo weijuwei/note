@@ -133,3 +133,42 @@ app  app.war  docs  examples  host-manager  manager  ROOT
 
 ![1563499301810](assets/1563499301810.png)
 
+<<<<<<< HEAD
+=======
+**根据git的tag拉取源码**
+
+1、安装git parameter插件
+
+2、新建项目，选择参数化构建过程
+
+![1563933371598](assets/1563933371598.png)
+
+3、准备github源码的tag,并推送上去
+
+```shell
+[root@anatronics]# git clone https://github.com/weijuwei/easy-springmvc-maven.git
+
+# 第一次更改提交，打上tag，并push
+[root@anatronics easy-springmvc-maven]# git add .
+[root@anatronics easy-springmvc-maven]# git commit -m "update user pass"
+[root@anatronics easy-springmvc-maven]# git tag -a "1.0.0"
+[root@anatronics easy-springmvc-maven]# git push origin master
+[root@anatronics easy-springmvc-maven]# git push --tags 
+
+# 第二次更改提交，打上tag，并push
+[root@anatronics easy-springmvc-maven]# git add .
+[root@anatronics easy-springmvc-maven]# git commit -m "update user pass"
+[root@anatronics easy-springmvc-maven]# git tag -a "1.0.1"
+[root@anatronics easy-springmvc-maven]# git push origin master
+[root@anatronics easy-springmvc-maven]# git push --tags 
+
+# 查看tag
+[root@anatronics easy-springmvc-maven]# git tag
+1.0.0
+1.0.1
+```
+
+4、选择Bulid with Parameters
+
+![1563933749095](assets/1563933749095.png)
+>>>>>>> 566881d6ce561b13e4ea50f3068f213a5624089d
