@@ -1,4 +1,7 @@
+> https://access.redhat.com/documentation/zh-cn/red_hat_enterprise_linux/7/html/high_availability_add-on_reference/index
+
 #### 1、环境
+
 - 操作系统：CentOS7.5
   - node1: 192.168.56.3
   - node2: 192.168.56.4
