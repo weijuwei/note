@@ -41,10 +41,45 @@ baseurl=https://mirrors.aliyun.com/centos/7/extras/x86_64/
 gpgcheck=0
 ```
 ##### 2、安装相关包
+
 ```shell
 [root@node1 ~]# yum install pcs pacemaker fence-agents-all -y
 ```
+本实验配置操作使用pcs工具，若使用crmsh取代pcs作为管理配置工具，做以下操作
+
+```shell
+# 相关yum源设置
+[root@node1 ~]# cat /etc/yum.repos.d/crmsh.repo
+[network_ha-clustering_Stable]
+name=Stable High Availability/Clustering packages (CentOS_CentOS-7)
+type=rpm-md
+baseurl=http://download.opensuse.org/repositories/network:/ha-clustering:/Stable/CentOS_CentOS-7/
+gpgcheck=0
+gpgkey=http://download.opensuse.org/repositories/network:/ha-clustering:/Stable/CentOS_CentOS-7/repodata/repomd.xml.key
+enabled=1
+# 安装相关包
+[root@node1 ~]# yum install crmsh pssh -y
+# 进入配置shell
+[root@node1 ~]# crm
+crm(live)# ls
+cibstatus        help             site
+cd               cluster          quit
+end              script           verify
+exit             ra               maintenance
+bye              ?                ls
+node             configure        back
+report           cib              resource
+up               status           corosync
+options          history
+crm(live)#
+```
+
+crm使用可参考：
+
+> http://crmsh.github.io/documentation/
+
 #### 3、设置并启动相关服务
+
 ##### 1、设置hacluster用户密码
 两节点都设置
 ```shell
@@ -113,6 +148,9 @@ node2: Starting Cluster (pacemaker)...
 
 - ocf:  ocf格式的启动脚本在/usr/lib/ocf/resource.d/
 - lsb:  lsb的脚本一般在/etc/rc.d/init.d/
+- systemd（服务须enable）
+- service（服务须chkconfig off）
+- stonith
 
 查看相关资源配置的参数
 
