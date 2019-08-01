@@ -1,8 +1,10 @@
 #### 环境
 - 系统：CentOS 7.5 
-  - 192.168.56.4
+  - 192.168.56.4 tracker storage1 node2
+  - 192.168.56.3 storage2  node1
   - 防火墙，selinux禁用
 - fastDFS v5.11
+- nginx 1.14.2
 #### 简介
 FastDFS 是一个开源的高性能分布式文件系统（DFS）。 它的主要功能包括：文件存储，文件同步和文件访问，以及高容量和负载平衡。主要解决了海量数据存储问题，特别适合以中小文件（建议范围：4KB < file_size <500MB）为载体的在线服务。
 FastDFS 系统有三个角色：跟踪服务器(Tracker Server)、存储服务器(Storage Server)和客户端(Client)。
@@ -38,7 +40,9 @@ tracker根据请求的文件路径即文件ID 来快速定义文件。
 #### 1、安装相关程序
 
 > https://github.com/happyfish100/fastdfs/blob/master/INSTALL
-下载libfastcommon源码，编译安装 
+https://github.com/happyfish100
+
+下载libfastcommon源码，编译安装 node1 node2两节点都进行操作
 
 ```shell
 [root@node2 pkgs]# git clone https://github.com/happyfish100/libfastcommon.git
@@ -98,6 +102,7 @@ base_path=/data/fastdfs/tracker
     └── trackerd.log
 ```
 ##### 2、配置启动storage
+以下两节点都进行操作
 ```shell
 # 创建相关目录
 [root@node2 fdfs]# mkdir /data/fastdfs/{storage,file}
@@ -134,19 +139,37 @@ LISTEN     0      128          *:23000                    *:*                   
 
 # 查看monitor信息
 [root@node2 fdfs]# fdfs_monitor /etc/fdfs/storage.conf
-server_count=1, server_index=0
-
-tracker server is 192.168.56.4:22122
-
 group count: 1
 
+Group 1:
+group name = group1
+disk total space = 5110 MB
+disk free space = 2111 MB
+trunk free space = 0 MB
+storage server count = 2
+active server count = 2
+storage server port = 23000
+storage HTTP port = 8888
+store path count = 1
+subdir count per path = 256
+current write server index = 0
+current trunk file id = 0
+
 	Storage 1:
+		id = 192.168.56.3
+		ip_addr = 192.168.56.3 (node1)  ACTIVE
+		http domain = 
+		version = 5.11
+		join time = 2019-08-01 09:23:49
+		up time = 2019-08-01 09:23:49
+		total storage = 5110 MB
+		free storage = 2111 MB
+		.....
+	Storage 2:
 		id = 192.168.56.4
 		ip_addr = 192.168.56.4 (node2)  ACTIVE
 		http domain = 
 		version = 5.11
-		join time = 2019-07-31 16:20:19
-		up time = 2019-07-31 16:20:19
 
 ```
 ##### 3、配置client
@@ -158,12 +181,133 @@ tracker_server=192.168.56.4:22122
 ```
 ##### 4、上传测试
 ```shell
-# 上传文件
+# 在node2上传文件
 [root@node2 fdfs]# fdfs_upload_file client.conf /root/wordpress-4.9.4-zh_CN.zip 
 group1/M00/00/00/wKg4BF1BUsWAZ455AJZEwwk_Q7s446.zip
 
 # 上传之后存放位置
 [root@node2 fdfs]# ls /data/fastdfs/file/data/00/00/wKg4BF1BUsWAZ455AJZEwwk_Q7s446.zip 
 /data/fastdfs/file/data/00/00/wKg4BF1BUsWAZ455AJZEwwk_Q7s446.zip
+
+# 在node1上查看上传的文件
+[root@node1 fdfs]# ls /data/fastdfs/file/data/00/00/wKg4BF1BUsWAZ455AJZEwwk_Q7s446.zip 
+/data/fastdfs/file/data/00/00/wKg4BF1BUsWAZ455AJZEwwk_Q7s446.zip
+# 文件也被同步到node1上，因为两节点同属于group1
 ```
 返回的文件ID由group、存储目录、两级子目录、fileid、文件后缀名（由客户端指定，主要用于区分文件类型）拼接而成。
+#### 3、nginx+fastdfs-module
+##### 1、获取源码包
+```shell
+# 获取nginx源码包
+[root@node2 pkgs]# wget http://nginx.org/download/nginx-1.14.2.tar.gz
+[root@node2 pkgs]# tar xf nginx-1.14.2.tar.gz 
+
+# 获取模块源码
+[root@node2 pkgs]# git clone https://github.com/happyfish100/fastdfs-nginx-module.git
+```
+##### 2、编译安装nginx
+```shell
+[root@node2 pkgs]# cd nginx-1.14.2/
+
+[root@node2 nginx-1.14.2]# ./configure --prefix=/apps/nginx --add-module=/root/pkgs/fastdfs-nginx-module/src
+```
+**编译报错解决**
+```
+# 报错
+/usr/include/fastdfs/fdfs_define.h:15:27: fatal error: common_define.h: No such file or directory
+ #include "common_define.h"
+# 解决
+[root@node2 nginx]# vim ../fastdfs-nginx-module/src/config
+ngx_module_incs="/usr/include/fastdfs /usr/include/fastcommon/"
+CORE_INCS="$CORE_INCS /usr/include/fastdfs /usr/include/fastcommon/"
+```
+##### 3、相关配置文件
+###### 1、拷贝配置文件到/etc/fdfs/
+```shell
+# 拷贝fastdfs源码包中的文件到/etc/fdfs
+[root@node2 pkgs]# cd fastdfs-5.11/
+[root@node2 fastdfs-5.11]# ls
+client  conf             fastdfs.spec  init.d   make.sh     README.md   stop.sh  test
+common  COPYING-3_0.txt  HISTORY       INSTALL  php_client  restart.sh  storage  tracker
+[root@node2 fastdfs-5.11]# cd conf
+[root@node2 conf]# ls
+anti-steal.jpg  client.conf  http.conf  mime.types  storage.conf  storage_ids.conf  tracker.conf
+[root@node2 conf]# cp anti-steal.jpg mime.types http.conf /etc/fdfs/
+
+# 拷贝nginx-fastdfs-module中的配置文件到/etc/fdfs下
+[root@node2 ~]# cd pkgs/fastdfs-nginx-module/src/
+[root@node2 src]# ls
+common.c  common.h  config  mod_fastdfs.conf  ngx_http_fastdfs_module.c
+[root@node2 src]# cp mod_fastdfs.conf /etc/fdfs/
+```
+###### 2、修改配置文件
+1、在nginx.conf中添加以下内容
+```
+    server {
+        listen 8888;
+        server_name 192.168.56.4;
+        location /M00 {
+            ngx_fastdfs_module;
+        }
+    }
+```
+2、修改/etc/fdfs/http.conf
+```shell 
+[root@node2 fdfs]# vim http.conf 
+http.anti_steal.token_check_fail=/etc/fdfs/anti-steal.jpg
+```
+3、修改/etc/fdfs/mod_fastdfs.conf 
+```shell
+[root@node2 fdfs]# vim mod_fastdfs.conf 
+store_path0=/data/fastdfs/file
+tracker_server=192.168.56.4:22122
+```
+##### 4、启动nginx测试
+```shell
+[root@node2 ~]# /apps/nginx/sbin/nginx 
+```
+访问一个上传的文本文件
+```shell
+# 上传一个文本测试文件
+[root@node2 ~]# cat test.txt 
+enp0s3: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet 192.168.56.4  netmask 255.255.255.0  broadcast 192.168.56.255
+        inet6 fe80::c97:3269:2649:c9f3  prefixlen 64  scopeid 0x20<link>
+        ether 08:00:27:2e:4e:8c  txqueuelen 1000  (Ethernet)
+        RX packets 90480585  bytes 8142451739 (7.5 GiB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 88937276  bytes 9049292916 (8.4 GiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536
+        inet 127.0.0.1  netmask 255.0.0.0
+        inet6 ::1  prefixlen 128  scopeid 0x10<host>
+        loop  txqueuelen 1000  (Local Loopback)
+        RX packets 255341  bytes 13296404 (12.6 MiB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 255341  bytes 13296404 (12.6 MiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+[root@node2 ~]# fdfs_upload_file /etc/fdfs/client.conf test.txt 
+/group1/M00/00/00/wKg4BF1CUxmAFD9-AAADlBZiHr0220.txt
+
+[root@node2 ~]# curl http://192.168.56.4:8888/M00/00/00/wKg4BF1CUxmAFD9-AAADlBZiHr0220.txt
+enp0s3: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet 192.168.56.4  netmask 255.255.255.0  broadcast 192.168.56.255
+        inet6 fe80::c97:3269:2649:c9f3  prefixlen 64  scopeid 0x20<link>
+        ether 08:00:27:2e:4e:8c  txqueuelen 1000  (Ethernet)
+        RX packets 90480585  bytes 8142451739 (7.5 GiB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 88937276  bytes 9049292916 (8.4 GiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536
+        inet 127.0.0.1  netmask 255.0.0.0
+        inet6 ::1  prefixlen 128  scopeid 0x10<host>
+        loop  txqueuelen 1000  (Local Loopback)
+        RX packets 255341  bytes 13296404 (12.6 MiB)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 255341  bytes 13296404 (12.6 MiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+```
