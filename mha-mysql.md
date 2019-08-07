@@ -258,3 +258,4 @@ MariaDB [(none)]> show slave status\G
             Slave_SQL_Running: Yes
 ```
 
+原主库修复好重新上线后，将其作为新master的slave  change master to 新master，删除mha日志文件目录中的mha.failover.complete文件，原主库开启read-only。
