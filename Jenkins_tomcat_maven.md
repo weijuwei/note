@@ -133,8 +133,6 @@ app  app.war  docs  examples  host-manager  manager  ROOT
 
 ![1563499301810](assets/1563499301810.png)
 
-<<<<<<< HEAD
-=======
 **根据git的tag拉取源码**
 
 1、安装git parameter插件
@@ -171,4 +169,3 @@ app  app.war  docs  examples  host-manager  manager  ROOT
 4、选择Bulid with Parameters
 
 ![1563933749095](assets/1563933749095.png)
->>>>>>> 566881d6ce561b13e4ea50f3068f213a5624089d
