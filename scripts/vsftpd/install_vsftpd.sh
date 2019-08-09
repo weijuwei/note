@@ -7,11 +7,11 @@ if [ $? -eq 0 ];then
 	sed -i "s/#pasv_address=8.8.8.8/pasv_address=$IP_ADDR/" vsftpd.conf;
 fi
 
-useradd -d /ftp -s /sbin/nologin vuser 2>&1 > /dev/null 
-
 if [ ! -e /ftp ];then
 	mkdir /ftp;
 fi
+
+useradd -d /ftp -s /sbin/nologin vuser 2>&1 > /dev/null 
 
 chmod +rx /ftp
 chmod -w /ftp
