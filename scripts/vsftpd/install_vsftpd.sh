@@ -11,7 +11,7 @@ if [ ! -e /ftp ];then
 	mkdir /ftp;
 fi
 
-useradd -d /ftp -s /sbin/nologin vuser 2>&1 > /dev/null 
+useradd -d /ftp -s /sbin/nologin vuser > /dev/null 2>&1
 
 chmod +rx /ftp
 chmod -w /ftp
@@ -22,7 +22,7 @@ fi
 
 setfacl -m u:vuser:rwx /ftp/upload
 
-yum install -y vsftpd ftp 2>&1 > /dev/null 
+yum install -y vsftpd ftp > /dev/null 2>&1
 chmod 600 vusers.db
 
 /usr/bin/cp -rf {vsftpd.conf,vusers.d,vusers.db,.vusers.txt} /etc/vsftpd/
