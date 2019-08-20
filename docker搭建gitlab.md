@@ -102,3 +102,10 @@ To http://gitlab.example.com:8080/root/test1.git
 
 ![](assets/gitlab3.png)
 
+##### 6、找回密码步骤
+如果是以docker方式启动的，先执行docker exec -it <容器id> bash进入容器之中。
+
+执行gitlab-rails console
+user = User.where(username: ‘root’).first
+user.password = ‘password’
+user.save! 
