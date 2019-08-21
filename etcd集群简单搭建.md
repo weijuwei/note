@@ -206,6 +206,8 @@ world
 
 ##### 5、其它一些简单操作命令
 
+**V2**
+
 ```shell
 # 集群健康状态查看
 [root@lab ~]# etcdctl cluster-health
@@ -251,5 +253,34 @@ curl http://127.0.0.1:2379/v2/keys/message -XDELETE
 curl http://127.0.0.1:2379/v2/keys/message
 # 更新数据 输出信息会有原来数据
 curl http://127.0.0.1:2379/v2/keys/message -XPUT -d value="Hello etcd"
+```
+
+**V3**
+
+```shell
+# export ETCDCTL_API=3
+
+# 添加键值
+# etcdctl put hello world  --endpoints=192.168.1.201:2379
+
+# 获取键值数据
+[root@lab ~]# etcdctl get hello  --endpoints=192.168.1.201:2379
+hello
+world
+
+# 删除数据
+[root@lab ~]# etcdctl del nihao  --endpoints=192.168.1.201:2379
+1
+
+# 数据做快照备份
+[root@lab ~]# etcdctl snapshot save /root/etcd.db --endpoints=192.168.1.201:2379
+Snapshot saved at /root/etcd.db
+
+# 恢复数据
+# 把之前的快照分发到集群其它主机
+# 恢复前停止服务 systemctl stop etcd
+# 每台主机执行
+# 修改恢复后的属组chown -R etcd:etcd /var/lib/etcd
+[root@lab ~]# etcdctl snapshot restore etcd.db --data-dir=/var/lib/etcd/default.etcd
 ```
 
