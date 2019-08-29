@@ -1,3 +1,7 @@
+**参考**
+
+> https://www.percona.com/doc/percona-xtrabackup/LATEST/index.html
+
 #### 简介
   通过xtrabackup备份（增量备份实验），做主从同步复制实验
 #### 环境
