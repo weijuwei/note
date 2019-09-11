@@ -155,8 +155,40 @@ admin_addr = "0.0.0.0:18080"
 ```
 #### 测试
 浏览器可访问进行操作 http://192.168.1.254:18090
+
+![1568220509171](assets/1568220509171.png)
+
 1、新建Proxy
-2、新建Group
-3、将codis-server加入到指定group
-4、划分slots
+
+![1568220386642](assets/1568220386642.png)
+
+2、新建Group，将codis-server加入到指定group
+
+![1568220415302](assets/1568220415302.png)
+3、划分slots
+
+![1568220467160](assets/1568220467160.png)
+
+4、客户端连接proxy
+
+```shell
+[root@lab ~]# redis-cli -h 192.168.1.254 -p 19000
+192.168.1.254:19000> set hello world
+OK
+192.168.1.254:19000> get hello
+"world"
+
+# 连接codis-server查看数据分配情况，数据被分配到group2上，并且数据已被复制
+[root@lab ~]# redis-cli -h 192.168.1.254 -p 6380
+192.168.1.254:6380> get hello
+(nil)
+192.168.1.254:6380> exit
+[root@lab ~]# redis-cli -h 192.168.1.254 -p 6382
+192.168.1.254:6382> get hello
+"world"
+192.168.1.254:6382>
+[root@lab ~]# redis-cli -h 192.168.1.254 -p 6383
+192.168.1.254:6383> get hello
+"world"
+```
 
