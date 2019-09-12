@@ -46,13 +46,13 @@ def send_mail(from_addr,password,to_addr,msg):
 if __name__ == '__main__':
     #  发件人地址
     #from_addr = input("请输入发送者邮箱地址：")
-    from_addr = 'weijuwei@sina.cn'
+    from_addr = 'xxxxx@xxx.xx'
     # 发件人密码
     #password = input("请输入发送者邮箱密码：")
-    password = 'w583112952sina'
+    password = 'xxxxxxx'
     # 收件人地址
     #to_addr = input("请输入收件者邮箱地址：")
-    to_addr = '583112952@qq.com'
+    to_addr = 'xxxxxxx@xx.com'
     # 邮件smtp服务地址
     # smtp_server = input("请输入邮件发送服务器SMTP：")
 
