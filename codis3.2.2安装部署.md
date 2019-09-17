@@ -34,21 +34,72 @@ export GOPATH=/usr/local/go/work
 
 [root@anatronics local]# go version
 go version go1.8.5 linux/amd64
+
+[root@anatronics codis]# go env GOPATH
+/usr/local/go/work
 ```
 #### zookeeper部署
 > https://github.com/weijuwei/note/blob/master/zookeeper.md
 
 #### 安装部署codis
-##### 1、获取相关包
+##### 1、安装
+###### 二进制包安装
 ```shell
 # 获取二进制包和源码包
 [root@anatronics src]# wget https://github.com/CodisLabs/codis/releases/download/3.2.2/codis3.2.2-go1.8.5-linux.tar.gz
-[root@anatronics src]# wget https://github.com/CodisLabs/codis/archive/3.2.2.tar.gz
 
 [root@anatronics src]# tar xf codis3.2.2-go1.8.5-linux.tar.gz 
 [root@anatronics src]# mv codis3.2.2-go1.8.5-linux /apps/
 [root@anatronics apps]# ln -sv /apps/codis3.2.2-go1.8.5-linux/ /apps/codis
 ```
+###### 源码编译
+```shell
+# 建立相关目录
+[root@anatronics codis]# mkdir -p $GOPATH/src/github.com/CodisLabs
+
+# 获取源码包
+[root@anatronics src]# wget https://github.com/CodisLabs/codis/archive/3.2.2.tar.gz
+
+# 解压源码包到$GOPATH/src/github.com/CodisLabs下
+[root@anatronics CodisLabs]# pwd
+/usr/local/go/work/src/github.com/CodisLabs
+[root@anatronics CodisLabs]# ls
+codis  codis-3.2.2
+
+# 编译安装
+[root@anatronics codis]# pwd
+/usr/local/go/work/src/github.com/CodisLabs/codis
+[root@anatronics codis]# make
+make -j -C extern/redis-3.2.8/
+... ...
+go build -i -o bin/codis-dashboard ./cmd/dashboard
+go build -i -o bin/codis-proxy ./cmd/proxy
+go build -i -o bin/codis-admin ./cmd/admin
+go build -i -o bin/codis-fe ./cmd/fe
+...
+
+# 运行程序
+[root@anatronics bin]# pwd
+/usr/local/go/work/src/github.com/CodisLabs/codis/bin
+[root@anatronics bin]# ls
+assets       codis-dashboard  codis-ha     codis-server     redis-cli       version
+codis-admin  codis-fe         codis-proxy  redis-benchmark  redis-sentinel
+[root@anatronics bin]# 
+
+# 一些脚本
+[root@anatronics admin]# pwd
+/usr/local/go/work/src/github.com/CodisLabs/codis/admin
+[root@anatronics admin]# ls
+codis-dashboard-admin.sh  codis-proxy-admin.sh
+codis-fe-admin.sh         codis-server-admin.sh
+
+# 相关配置文件
+[root@anatronics config]# pwd
+/usr/local/go/work/src/github.com/CodisLabs/codis/config
+[root@anatronics config]# ls
+dashboard.toml  proxy.toml  redis.conf  sentinel.conf
+```
+
 ##### 2、相关目录
 ```shell
 # 将源码包中的config目录拷贝到/apps/codis/目录下
