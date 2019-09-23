@@ -295,9 +295,7 @@ ni hao shijie
 {"@version":"1","host":"lab1","@timestamp":"2019-02-23T10:38:00.688Z","message":"hellphello world"}
 {"@version":"1","host":"lab1","@timestamp":"2019-02-23T10:38:22.016Z","message":"ni hao shijie"} 
 ```
-
 **收集系统日志 /var/log/messages 存到elasticsearch中，并在/tmp/下生成文件**
-
 ```shell
 1、配置
 # cat system_log.conf 
@@ -332,9 +330,49 @@ logstash-2019.02.23.txt  system-log-2019.02.23
 {"@version":"1","host":"lab1","path":"/var/log/messages","@timestamp":"2019-02-23T11:38:54.007Z","message":"Feb 23 19:36:56 lab1 logstash: }","type":"system-log"}
 [root@lab1 tmp]#
 ```
+**收集syslog**
+1、配置syslog日志输出
+```shell
+# vim /etc/rsyslog.conf 
+*.* @@192.168.1.254:514
+
+# systemctl restart rsyslogd
+```
+2、配置
+```shell
+# cat syslog.conf 
+input {
+	syslog {
+		type => "system-syslog"
+		port => "514"
+	}
+}
+
+output {
+	stdout {
+		codec => "rubydebug"
+	}
+
+#	redis {
+#		host => "192.168.1.201"
+#		port => 6379
+#		key => "syslog"
+#		db => 0
+#		data_type => "list"
+#	}
+	elasticsearch {
+		hosts => ["192.168.1.254"]
+		index => "syslog"
+	}
+}`
+```
+3、启动
+```shell
+/usr/share/logstash/bin/logstash -f /etc/logstash/conf.d/mutiple_logs.conf
+```
+在本机可查看514端口被打开
 
 **收集多个日志文件到es**
-
 ```shell
 1、配置
 # cat mutiple_logs.conf 
