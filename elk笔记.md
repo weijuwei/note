@@ -212,6 +212,15 @@ output {
 通过指定文件启动：
  /usr/share/logstash/bin/logstash -f  /etc/logstash/conf.d/test.conf  
 
+**显示提示信息**
+
+```shell
+WARNING: Could not find logstash.yml which is typically located in $LS_HOME/config or /etc/logstash. You can specify the path using --path.settings. Continuing using the defaults
+
+解决：
+[root@anatronics logstash]# ln -sv /etc/logstash/ /usr/share/logstash/config
+```
+
 3、验证结果显示
 
 ```shell
