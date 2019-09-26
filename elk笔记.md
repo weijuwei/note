@@ -339,6 +339,26 @@ logstash-2019.02.23.txt  system-log-2019.02.23
 {"@version":"1","host":"lab1","path":"/var/log/messages","@timestamp":"2019-02-23T11:38:54.007Z","message":"Feb 23 19:36:56 lab1 logstash: }","type":"system-log"}
 [root@lab1 tmp]#
 ```
+**多行处理**
+```shell
+# 匹配以[开头的，之前的行
+[root@anatronics conf.d]# cat multiline.conf 
+input {
+    file {
+        codec => multiline {
+            pattern => "^\["
+            negate => true
+            what => "previous"
+        }
+    }
+}
+
+output {
+    stdout {
+        codec => "rubydebug"
+    }
+}
+```
 **收集syslog**
 1、配置syslog日志输出
 ```shell
