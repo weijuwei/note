@@ -1,0 +1,93 @@
+GET _search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+
+GET  kafka-2019.10.23/_search
+{
+  "query": {
+    "term":{
+      "message": "goodbye"
+    }
+  }
+}
+
+GET httpd-2019.09.25/_search
+{
+  "query": {
+    "match": {
+      "cip": "192.168.1.238"
+    }
+  }
+}
+
+GET httpd-2019.09.25/_search
+{
+  "query": {
+    "match_all": {}
+  }
+}
+
+PUT kafka-2019.10.23/logstash-kafka/23 
+{
+  "message":"put"
+}
+
+GET kafka-2019.10.23/_search 
+{
+  "query": {
+    "match": {
+      "_id":"23"
+    }
+  }
+}
+
+POST kafka-2019.10.23/logstash-kafka/23/_update
+{
+  "script": "ctx._source.message='post update'"
+  }
+}
+
+POST cars/_search?size=0
+{
+  "aggs": {
+    "avg_mileage": {
+      "avg": {
+        "field": "mileage"
+      }
+    }
+  }
+}
+
+POST cars/_search?size=0
+{
+  "aggs": {
+    "mileage_sum": {
+      "sum": {
+        "script": {
+          "source":"doc.door_count.value"
+        }
+      }
+    }
+  }
+}
+
+GET cars/_search
+{
+  "query": {
+    "bool": {
+      "must": [
+        {"match": {
+          "maker": "bmw"
+        }}
+      ]
+    , "filter": {
+        "term": {
+          "door_count": "4"
+        }
+    }      
+    }
+  }
+}
