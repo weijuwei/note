@@ -47,7 +47,6 @@ GET kafka-2019.10.23/_search
 POST kafka-2019.10.23/logstash-kafka/23/_update
 {
   "script": "ctx._source.message='post update'"
-  }
 }
 
 POST cars/_search?size=0
