@@ -466,6 +466,81 @@ vim /etc/nginx/nginx.conf
           }..........
 ```
 
+**mysql**
+
+mysql数据导入到ES
+```
+[root@anatronics conf.d]# cat es-mysql.conf 
+input {
+	jdbc {
+		jdbc_driver_library => "/etc/logstash/conf.d/mysql-connector-java-8.0.18.jar"
+		jdbc_driver_class => "com.mysql.cj.jdbc.Driver"
+		jdbc_connection_string => "jdbc:mysql://192.168.1.201:33060/hellodb"
+		jdbc_user => "root"
+		jdbc_password => "123456"
+		schedule => "* * * * *"
+		statement => "SELECT * from teachers"
+	}
+}
+
+output {
+	stdout {
+		codec => rubydebug
+	}
+
+	elasticsearch {
+		hosts => ["192.168.1.254"]
+		index => "mysql-hellodb"
+	}
+}
+```
+ES数据到mysql
+```
+[root@anatronics conf.d]# logstash-plugin install logstash-output-jdbc
+Validating logstash-output-jdbc
+Installing logstash-output-jdbc
+Installation successful
+
+#创建测试表
+MariaDB [hellodb]> create table test (id int,name varchar(15) not null,age int);
+
+[root@anatronics conf.d]# cat es-mysql1.conf 
+input {
+	stdin {}
+}
+
+filter {
+	json {
+		source => "message"
+	}
+}
+
+output {
+	jdbc {
+		driver_jar_path => "/etc/logstash/conf.d/mysql-connector-java-8.0.18.jar"
+		driver_class => "com.mysql.cj.jdbc.Driver"
+		connection_string => "jdbc:mysql://192.168.1.201:33060/hellodb?user=root&password=123456"
+		statement => ["insert into test values(?,?,?)","id","name","age"] 
+
+	}
+	stdout {
+		codec => rubydebug
+	}
+}
+
+#在命令行输入
+{"id":"1","name":"tom","age":"18"}
+
+MariaDB [hellodb]> select * from test;
++------+------+------+
+| id   | name | age  |
++------+------+------+
+|    1 | tom  |   32 |
++------+------+------+
+1 row in set (0.00 sec)
+
+```
+
 #### 3、安装kibana
 
 1、安装包
