@@ -1,0 +1,90 @@
+wget http://mirrors.tuna.tsinghua.edu.cn/apache/kafka/2.3.0/kafka_2.12-2.3.0.tgz
+tar xf kafka_2.12-2.3.0.tgz -C ../
+cd kafka_2.12-2.3.0/
+ln -s kafka_2.12-2.3.0/ kafka
+cd kafka
+vim /etc/profile.d/kafka.sh
+cd /apps/kafka
+vim /etc/profile.d/kafka.sh
+source /etc/profile.d/kafka.sh 
+cd kafka-logs/
+kafka-server-start.sh /apps/kafka/config/server.properties 
+/apps/kafka/bin/kafka-console-producer.sh --broker-list localhost:9092 --topic test
+bin/kafka-topics.sh --bootstrap-server localhost:9092 --list
+bin/kafka-topics.sh --bootstrap-server localhost:9092 --describe --topic test
+bin/kafka-topics.sh --bootstrap-server localhost:9092 --describe --topic test1
+cd kafka
+../bin/kafka-console-consumer.sh -h
+../bin/kafka-console-consumer.sh --consumer.config consumer1.properties --topic test2
+../bin/kafka-console-consumer.sh --consumer.config --bootstrap-server localhost:9093 consumer1.properties --topic test2
+../bin/kafka-console-consumer.sh --consumer.config ./consumer1.properties --bootstrap-server localhost:9093 --topic test2
+cd /apps/kafka
+bin/kafka-console-producer.sh --broker-list localhost:9092 --topic test2 --partition 2 --replication 2 --create
+bin/kafka-topics.sh --bootstrap-server localhost:9092 --topic test2 --partition 2 --replication 2 --create
+bin/kafka-topics.sh -h
+history |grep kafka
+bin/kafka-topics.sh --bootstrap-server localhost:9092 --topic test2 --partitions 2 --replication-factor 2 --create
+bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --partitions 2 --replication-factor 2 --topic test2
+bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --partitions 2 --replication-factor 2 --topic test3
+bin/kafka-topics.sh --bootstrap-server localhost:9092 --delete --topic test3
+bin/kafka-topics.sh --bootstrap-server localhost:9092 --delete --topic test2
+bin/kafka-topics.sh --bootstrap-server localhost:9092 --list
+bin/kafka-topics.sh --bootstrap-server localhost:9092 --delete --topic test3
+bin/kafka-topics.sh --bootstrap-server localhost:9092 --list
+bin/kafka-topics.sh --bootstrap-server localhost:9092 --delete --topic test2
+bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --partitions 2 --replication-factor 2 --topic test2
+bin/kafka-console-producer.sh --broker-list localhost:9093 --topic test2
+cd kafka
+vim /apps/kafka/bin/zookeeper-server-start.sh
+vim kafka_test.conf
+logstash -f kafka_test.conf 
+vim kafka_test.conf f
+logstash -f kafka_test.conf 
+vim kafka_test.conf 
+vim kafka_test.conf 
+logstash -f kafka_test.conf 
+vim kafka_test.conf 
+logstash -f kafka_test.conf 
+vim kafka_test.conf 
+logstash -f kafka_test.conf 
+vim kafka_test.conf 
+vim kafka_test.conf 
+vim kafka_test.conf 
+vim kafka_test.conf 
+logstash -f kafka_test.conf 
+kafka-server-start.sh /apps/kafka/config/server1.properties
+history |grep kafka
+kafka-topics.sh --bootstrap-server localhost:9092 --list
+kafka-console-producer.sh --broker-list localhost:9092 --topic test
+kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic test1
+history | grep kafka
+bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --partitions 2 --replication-factor 3 --topic test3
+kafka-topics.sh --bootstrap-server localhost:9092 --create --partitions 2 --replication-factor 3 --topic test3
+kafka-topics.sh --bootstrap-server localhost:9092 --create --partitions 3 --replication-factor 2 --topic test3
+kafka-topics.sh -h
+kafka-topics.sh --bootstrap-server localhost:9092 --describe --topic test3
+kafka-server-start.sh -h
+kafka-server-start.sh /apps/kafka/config/server.properties 
+cd /apps/kafka
+cd /apps/kafka
+cd /apps/kafka
+kafka-log-dirs.sh 
+cd /tmp/kafka-log
+cd /tmp/kafka-logs/
+cd kafka
+kafka-run-class.sh kafka.tools.DumpLogSegments --files /tmp/kafka-logs/test3-0/00000000000000000000.index 
+kafka-run-class.sh kafka.tools.DumpLogSegments --files /tmp/kafka-logs/test1-0/00000000000000000000.index 
+kafka-run-class.sh kafka.tools.DumpLogSegments --files /tmp/kafka-logs/test2-0/00000000000000000000.index 
+ls /tmp/kafka-logs/test-0/
+vim /apps/kafka/config/producer.properties 
+vim /apps/kafka/config/server.properties 
+vim /apps/kafka/config/zookeeper.properties 
+vim /apps/kafka/config/consumer.properties 
+cd kafka
+history | grep kafka
+curl 192.168.1.254:9200/kafka-2019.10.23
+curl 192.168.1.254:9200/kafka-2019.10.23/23
+curl 192.168.1.254:9200/kafka-2019.10.23/23|jq
+curl 192.168.1.254:9200/kafka-2019.10.23/logstash-kafka/23|jq
+history | grep kafka
+history | grep kafka > kafka.history

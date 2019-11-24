@@ -44,6 +44,12 @@ GET kafka-2019.10.23/_search
   }
 }
 
+#带version 并发控制
+PUT kafka-2019.10.23/logstash-kafka/23?version=8&version_type=external
+{
+  "message": "hahah8"
+}
+
 POST kafka-2019.10.23/logstash-kafka/23/_update
 {
   "script": "ctx._source.message='post update'"
