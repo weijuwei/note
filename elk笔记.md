@@ -107,7 +107,130 @@ curl 192.168.10.200:9200
 }
 ```
 
+
+
+#### 1、docker搭建ES集群
+
+相关目录准备
+
+```shell
+[root@anatronics ~]# pwd
+/root
+[root@anatronics ~]# tree elasticsearch/
+elasticsearch/
+├── es1
+│   ├── config
+│   │   └── elasticsearch.yml
+│   ├── data
+│   ├── logs
+│   └── plugins
+└── es2
+    ├── config
+    │   └── elasticsearch.yml
+    ├── data
+    ├── logs
+    └── plugins
+
+10 directories, 2 files
+[root@anatronics ~]# 
+```
+
+es1配置文件
+
+```shell
+[root@anatronics ~]# cat elasticsearch/es1/config/elasticsearch.yml 
+cluster.name: es-docker
+node.name: es1
+network.bind_host: 0.0.0.0
+network.publish_host: 192.168.1.254
+http.port: 9201
+transport.tcp.port: 9301
+discovery.zen.ping.unicast.hosts: ["192.168.1.254:9301","192.168.1.254:9302"]
+http.cors.enabled: true
+http.cors.allow-origin: "*"
+node.master: true
+node.data: true
+discovery.zen.minimum_master_nodes: 1
+```
+
+es2配置文件
+
+```shell
+[root@anatronics ~]# cat elasticsearch/es2/config/elasticsearch.yml 
+cluster.name: es-docker
+node.name: es2
+network.bind_host: 0.0.0.0
+network.publish_host: 192.168.1.254
+http.port: 9202
+transport.tcp.port: 9302
+discovery.zen.ping.unicast.hosts: ["192.168.1.254:9301","192.168.1.254:9302"]
+http.cors.enabled: true
+http.cors.allow-origin: "*"
+node.master: true
+node.data: true
+discovery.zen.minimum_master_nodes: 1
+```
+
+创建容器
+
+```shell
+# 容器1 ES1
+[root@anatronics config]# docker run -i -t -d -p 9201:9201 -p 9301:9301 -v /root/elasticsearch/es1/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml -v /root/elasticsearch/es1/data:/usr/share/elasticsearch/data -v /root/elasticsearch/es1/logs://usr/share/elasticsearch/logs -v /root/elasticsearch/es1/plugins:/usr/share/elasticsearch/plugins -e "ES_JAVA_OPTS=-Xms512m -Xmx512m"  --name es1 docker.io/elasticsearch:5.6-alpine
+da8cab3b29db803412e6dfbc9d6eed2f9a7116797c7a6d561553838c04ee8813
+
+# 容器2 ES2
+[root@anatronics config]# docker run -i -t -d -p 9202:9202 -p 9302:9302 -v /root/elasticsearch/es2/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml -v /root/elasticsearch/es2/data:/usr/share/elasticsearch/data -v /root/elasticsearch/es2/logs://usr/share/elasticsearch/logs -v /root/elasticsearch/es2/plugins:/usr/share/elasticsearch/plugins -e "ES_JAVA_OPTS=-Xms512m -Xmx512m"  --name es2 docker.io/elasticsearch:5.6-alpine
+07a111aad1311e148bc47eb856f132691ed3608467e8ee0d878f0afacdbb937e
+```
+
+报错解决
+
+```
+[1] bootstrap checks failed
+[1]: max virtual memory areas vm.max_map_count [65530] is too low, increase to at least [262144]
+
+执行：
+sysctl -w vm.max_map_count=262144
+```
+
+查看容器
+
+```shell
+[root@anatronics config]# docker container ls
+CONTAINER ID        IMAGE                                COMMAND                  CREATED             STATUS              PORTS                                                                NAMES
+07a111aad131        docker.io/elasticsearch:5.6-alpine   "/docker-entrypoin..."   2 minutes ago       Up 2 minutes        9200/tcp, 0.0.0.0:9202->9202/tcp, 9300/tcp, 0.0.0.0:9302->9302/tcp   es2
+da8cab3b29db        docker.io/elasticsearch:5.6-alpine   "/docker-entrypoin..."   4 minutes ago       Up 4 minutes        9200/tcp, 0.0.0.0:9201->9201/tcp, 9300/tcp, 0.0.0.0:9301->9301/tcp   es1
+```
+
+验证
+
+```shell
+[root@anatronics config]# curl 192.168.1.254:9201
+{
+  "name" : "es1",
+  "cluster_name" : "es-docker",
+  "cluster_uuid" : "MD91_XINSEuhIah-3Yg3kA",
+  "version" : {
+    "number" : "5.6.16",
+    "build_hash" : "3a740d1",
+    "build_date" : "2019-03-13T15:33:36.565Z",
+    "build_snapshot" : false,
+    "lucene_version" : "6.6.1"
+  },
+  "tagline" : "You Know, for Search"
+}
+
+[root@anatronics config]# curl 192.168.1.254:9201/_cat/nodes
+192.168.1.254 24 87 7 0.03 0.19 0.15 mdi * es1
+192.168.1.254 22 87 4 0.03 0.19 0.15 mdi - es2
+```
+
+
+
+
+
 创建测试索引
+
 ```shell
 curl -XPUT 192.168.10.200:9200/test_index/books/1 -d '       
 { "name": "elasticsearch"
