@@ -182,6 +182,7 @@ S: 3e80bcb136c3410a4533e268553f58db57a3e9b7 192.168.56.4:6381
 [OK] All 16384 slots covered.
 ```
 ##### 一些命令
+普通方式连接
 ```
 # 在master节点添加
 [root@node2 src]# redis-cli -h 192.168.56.3 -p 6380
@@ -201,6 +202,24 @@ OK
 192.168.56.3:6382> set k1 v1
 (error) MOVED 12706 192.168.56.3:6381
 192.168.56.3:6382> 
+```
+集群方式连接
+```
+[root@node2 redis-cluster]# redis-cli -c  -h 192.168.56.3 -p 6380
+192.168.56.3:6380> GET k1
+-> Redirected to slot [12706] located at 192.168.56.3:6381
+(nil)
+192.168.56.3:6381> set k1 v1
+OK
+192.168.56.3:6381> set k2 v2
+-> Redirected to slot [449] located at 192.168.56.3:6380
+OK
+192.168.56.3:6380> MSET k3 v3 k4 v4
+(error) CROSSSLOT Keys in request don't hash to the same slot
+192.168.56.3:6380> MSET k3{c} v3 k4{c} v4
+-> Redirected to slot [7365] located at 192.168.56.4:6380
+OK
+192.168.56.4:6380> 
 ```
 查看cluster节点
 ```
