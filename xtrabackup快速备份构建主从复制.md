@@ -104,7 +104,7 @@ server-id       = 2
 ```
 ##### 2、主库创建slave同步user  node1
 ```shell
-mysql> grant replication slave,reload,super on *.* to repluser@192.168.56.* identified by 'centos';
+mysql> grant replication slave,reload,super on *.* to 'repluser@'192.168.56.%' identified by 'centos';
 mysql> FLUSH PRIVILEGES;
 ```
 ##### 3、从库启动slave
