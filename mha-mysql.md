@@ -160,6 +160,11 @@ Can't locate MHA/ManagerConst.pm in @INC (@INC contains: /usr/local/lib64/perl5 
 BEGIN failed--compilation aborted at /usr/bin/masterha_check_status line 25.
 #解决
 export PERL5LIB=$PERL5LIB:/usr/lib/perl5/vendor_perl/
+
+#报错
+Maybe MHA Node package is not installed?
+#解决
+ln -s /usr/lib/perl5/vendor_perl/MHA /usr/lib64/perl5/vendor_perl/
 ```
 
 再次执行masterha_check_ssh
