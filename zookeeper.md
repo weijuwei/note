@@ -93,7 +93,7 @@ server.3=127.0.0.1:2890:3890
 [root@anatronics conf]# zkServer.sh start zoo1.cfg
 [root@anatronics conf]# zkServer.sh start zoo2.cfg
 [root@anatronics conf]# zkServer.sh start zoo3.cfg
-``` 
+```
 **查看状态**
 ```shell
 [root@anatronics conf]# zkServer.sh status zoo1.cfg
@@ -115,7 +115,17 @@ Using config: /apps/zookeeper/bin/../conf/zoo3.cfg
 Client port found: 2183. Client address: localhost.
 Mode: leader
 ```
+**note**
+
+```
+#服务启动占用8080端口
+#解决：
+#修改启动脚本zkServer.sh添加
+"-Dzookeeper.admin.enableServer=false"
+```
+
 ##### 5、简单操作
+
 **进入命令行管理操作**
 ```shell
 [root@anatronics conf]# zkCli.sh 
