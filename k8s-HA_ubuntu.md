@@ -6,8 +6,9 @@
 docker: 19.03.5
 k8s：v1.17.0
 主机：
-- node01: 192.168.20.101
-- node02: 192.168.20.102
+- node01: 192.168.20.101 master
+- node02: 192.168.20.102 master
+- node03: 192.168.20.103 node
 - VIP: 192.168.20.20
 主机间ssh互信，时间同步，hosts解析
 ##### keepalived
@@ -91,7 +92,8 @@ vrrp_instance VI_1 {
     }
 }
 ```
-**启动查看***
+**启动查看**
+
 ```shell
 # systemctl start keepalived.service 
 root@node02:~# ip a show eth0 
@@ -134,6 +136,7 @@ systemctl start haproxy
 两台主机都进行操作
 ###### 相关准备
 1、移除旧版本docker
+
 ```shell
 apt-get autoremove docker
 apt-get remove docker  docker-engine docker-ce docker.io -y
@@ -169,13 +172,13 @@ kubeadm config images pull --image-repository=registry.aliyuncs.com/google_conta
 ###### master安装
 先在VIP所在主机上执行操作，当前是node02
 启动kubelet
-```
+```shell
 systemctl enable kubelet
 systemctl start kubelet
 ```
 **初始化master**
 **--control-plane-endpoint 为VIP**
-```
+```shell
 root@node02:~# kubeadm init --pod-network-cidr=10.244.0.0/16 --apiserver-advertise-address=192.168.20.102 --control-plane-endpoint 192.168.20.20:8443 --image-repository=registry.aliyuncs.com/google_containers
 
 Your Kubernetes control-plane has initialized successfully!
@@ -203,13 +206,13 @@ kubeadm join 192.168.20.20:8443 --token 3fjt0d.1vzgmr16npj6knq7 \
     --discovery-token-ca-cert-hash sha256:d6a4160d51817929617898c69300d109b2150f5cc3f5f693a71fa556b88ca10b 
 ```
 根据上面提示进行操作
-```
+```shell
   mkdir -p $HOME/.kube
   sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
   sudo chown $(id -u):$(id -g) $HOME/.kube/config
 ```
 查看节点信息
-```
+```shell
 root@node02:~# kubectl get node
 NAME     STATUS     ROLES    AGE   VERSION
 node02   NotReady   master   11m   v1.17.0
@@ -251,7 +254,7 @@ do
 done
 ```
 执行命令
-```
+```shell
 systemctl enable kubelet
 systemctl start kubelet
 
@@ -260,11 +263,128 @@ kubeadm join 192.168.20.20:8443 --token 3fjt0d.1vzgmr16npj6knq7 \
     --control-plane 
 ```
 查看结果
-```
+```shell
 root@node02:~# kubectl get node
 NAME     STATUS   ROLES    AGE     VERSION
 node01   Ready    master   26s     v1.17.0
-node02   Ready    master   5m15s   v1.17.0
+node02   Ready    master   5m15s   v1.17.0shell
+```
+
+######   加入node节点
+
+```shell
+root@node03:~# apt install docker-ce kubelet -y
+root@node03:~# systemctl enable docker
+root@node03:~# systemctl enable kubelet
+root@node03:~# systemctl start docker
+root@node03:~# systemctl start kubelet
+
+root@node03:~# kubeadm join 192.168.20.20:8443 --token te1kgf.z0a9eocjhbw94spc     --discovery-token-ca-cert-hash sha256:d6a4160d51817929617898c69300d109b2150f5cc3f5f693a71fa556b88ca10b
+```
+
+```shell
+root@node01:~/k8s# kubectl get node
+NAME     STATUS   ROLES    AGE     VERSION
+node01   Ready    master   3d20h   v1.17.0
+node02   Ready    master   3d20h   v1.17.0
+node03   Ready    <none>   3h24m   v1.17.0
+```
+
+###### master节点参与pod调度分配
+
+```shell
+root@node02:~# kubectl taint nodes --all node-role.kubernetes.io/master-
+node/node01 untainted
+node/node02 untainted
+```
+
+**master节点恢复不被调度**
+
+```shell
+kubectl taint node localhost.localdomain node-role.kubernetes.io/master="":NoSchedule
+```
+
+###### **修改路由转发模式ipvs替代iptables**
+
+所有节点都执行
+
+1、加载相关内核模块
+
+```shell
+modprobe -- ip_vs
+modprobe -- ip_vs_rr
+modprobe -- ip_vs_wrr
+modprobe -- ip_vs_sh
+modprobe -- nf_conntrack_ipv4
+```
+
+2、修改内核参数
+
+```shell
+root@node03:~# cat >> /etc/sysctl.conf << EOF
+> net.ipv4.ip_forward = 1
+> net.bridge.bridge-nf-call-iptables = 1
+> net.bridge.bridge-nf-call-ip6tables = 1
+> EOF
+root@node03:~# sysctl -p
+net.ipv4.ip_forward = 1
+net.bridge.bridge-nf-call-iptables = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+```
+
+3、master节点执行
+
+修改configMap中的kube-proxy中的mode修改为ipvs
+
+```shell
+root@node01:~/k8s# kubectl get cm kube-proxy -n kube-system
+NAME         DATA   AGE
+kube-proxy   2      3d20h
+root@node01:~/k8s# kubectl edit cm kube-proxy -n kube-system
+ mode: "ipvs"
+```
+
+4、删除kube-system名称空间中kubec-proxy-xxxxPod,让其重新生成新的Pod
+
+```shell
+root@node02:/etc/kubernetes/manifests# kubectl get pod -n kube-system |grep kube-proxy 
+kube-proxy-j977j                 1/1     Running   1          3d20h
+kube-proxy-pvkhr                 1/1     Running   1          3d20h
+kube-proxy-tdfs6                 1/1     Running   1          166m
+root@node02:/etc/kubernetes/manifests# kubectl get pod -n kube-system |grep kube-proxy |awk '{system("kubectl delete pod "$1" -n kube-system")}'
+pod "kube-proxy-j977j" deleted
+pod "kube-proxy-pvkhr" deleted
+pod "kube-proxy-tdfs6" deleted
+root@node02:/etc/kubernetes/manifests# kubectl get pod -n kube-system |grep kube-proxy 
+kube-proxy-c8ddm                 1/1     Running   0          12s
+kube-proxy-s5pf9                 1/1     Running   0          10s
+kube-proxy-zq4qf                 1/1     Running   0          4s
+```
+
+5、安装ipvsadm查看生成的ipvs规则
+
+```shell
+root@node02:~# ipvsadm -Ln
+IP Virtual Server version 1.2.1 (size=4096)
+Prot LocalAddress:Port Scheduler Flags
+  -> RemoteAddress:Port           Forward Weight ActiveConn InActConn
+TCP  192.168.20.102:32254 rr
+  -> 10.244.2.8:80                Masq    1      0          0         
+TCP  10.96.0.1:443 rr
+  -> 192.168.20.101:6443          Masq    1      0          0         
+  -> 192.168.20.102:6443          Masq    1      0          0         
+TCP  10.96.0.10:53 rr
+  -> 10.244.0.4:53                Masq    1      0          0         
+  -> 10.244.0.5:53                Masq    1      0          0         
+TCP  10.96.0.10:9153 rr
+  -> 10.244.0.4:9153              Masq    1      0          0         
+  -> 10.244.0.5:9153              Masq    1      0          0         
+TCP  10.96.221.70:80 rr
+  -> 10.244.2.8:80                Masq    1      0          0         
+TCP  10.244.0.0:32254 rr
+  -> 10.244.2.8:80                Masq    1      0          0         
+TCP  10.244.0.1:32254 rr
+  -> 10.244.2.8:80                Masq    1      0          0         
 ```
 
 ##### 查看haproxy+keepalived状态信息
