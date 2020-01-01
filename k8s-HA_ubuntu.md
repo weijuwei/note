@@ -32,6 +32,14 @@ global_defs {
    router_id LVS_DEVEL
 }
 
+vrrp_script check_haproxy {
+    script "killall -0 haproxy"
+    interval 3
+    weight -2
+    fall 10
+    rise 2
+}
+
 vrrp_instance VI_1 {
     state MASTER
     interface eth0
@@ -46,6 +54,9 @@ vrrp_instance VI_1 {
     }
     virtual_ipaddress {
         192.168.20.20
+    }
+    track_script {
+        check_haproxy
     }
 }
 ```
@@ -69,7 +80,7 @@ vrrp_script check_haproxy {
     interval 3
     weight -2
     fall 10
-    rise
+    rise 2
 }
 
 vrrp_instance VI_1 {
