@@ -187,8 +187,11 @@ kubeadm config images pull --image-repository=registry.aliyuncs.com/google_conta
 systemctl enable kubelet
 systemctl start kubelet
 ```
+**方式一**
+
 **初始化master**
 **--control-plane-endpoint 为VIP**
+
 ```shell
 root@node02:~# kubeadm init --pod-network-cidr=10.244.0.0/16 --apiserver-advertise-address=192.168.20.102 --control-plane-endpoint 192.168.20.20:8443 --image-repository=registry.aliyuncs.com/google_containers
 
@@ -228,7 +231,92 @@ root@node02:~# kubectl get node
 NAME     STATUS     ROLES    AGE   VERSION
 node02   NotReady   master   11m   v1.17.0
 ```
+**方式二**
+
+**通过配置文件初始化master**
+
+```
+root@node01:~# kubeadm config print init-defaults > init_k8s.yaml
+```
+
+根据需要修改相关项
+
+```shell
+root@node01:~# cat init_k8s.yaml
+apiVersion: kubeadm.k8s.io/v1beta2
+bootstrapTokens:
+- groups:
+  - system:bootstrappers:kubeadm:default-node-token
+  token: abcdef.0123456789abcdef
+  ttl: 24h0m0s
+  usages:
+  - signing
+  - authentication
+kind: InitConfiguration
+localAPIEndpoint:
+  advertiseAddress: 192.168.20.101
+  bindPort: 6443
+nodeRegistration:
+  criSocket: /var/run/dockershim.sock
+  name: node01
+  taints:
+  - effect: NoSchedule
+    key: node-role.kubernetes.io/master
+---
+apiServer:
+  timeoutForControlPlane: 4m0s
+apiVersion: kubeadm.k8s.io/v1beta2
+certificatesDir: /etc/kubernetes/pki
+clusterName: kubernetes
+controlPlaneEndpoint: "192.168.20.20:8443"
+controllerManager: {}
+dns:
+  type: CoreDNS
+etcd:
+  local:
+    dataDir: /var/lib/etcd
+imageRepository: registry.aliyuncs.com/google_containers
+kind: ClusterConfiguration
+kubernetesVersion: v1.17.0
+networking:
+  dnsDomain: cluster.local
+  podSubnet: 10.244.0.0/16
+  serviceSubnet: 10.96.0.0/16
+scheduler: {}
+---
+apiVersion: kubeproxy.config.k8s.io/v1alpha1
+kind: KubeProxyConfiguration
+mode: "ipvs"
+
+```
+
+```shell
+root@node01:~# kubeadm init --config init_k8s.yaml
+To start using your cluster, you need to run the following as a regular user:
+
+  mkdir -p $HOME/.kube
+  sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+  sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+You should now deploy a pod network to the cluster.
+Run "kubectl apply -f [podnetwork].yaml" with one of the options listed at:
+  https://kubernetes.io/docs/concepts/cluster-administration/addons/
+
+You can now join any number of control-plane nodes by copying certificate authorities
+and service account keys on each node and then running the following as root:
+
+  kubeadm join 192.168.20.20:8443 --token abcdef.0123456789abcdef \
+    --discovery-token-ca-cert-hash sha256:1537b850d1e219c61705c6fe7d46440f12e29a3d57e337b6079a5f8f903c8984 \
+    --control-plane 
+
+Then you can join any number of worker nodes by running the following on each as root:
+
+kubeadm join 192.168.20.20:8443 --token abcdef.0123456789abcdef \
+    --discovery-token-ca-cert-hash sha256:1537b850d1e219c61705c6fe7d46440f12e29a3d57e337b6079a5f8f903c8984 
+```
+
 **安装网络插件**
+
 ```shell
 root@node02:~#kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
 ```
@@ -401,3 +489,34 @@ TCP  10.244.0.1:32254 rr
 ##### 查看haproxy+keepalived状态信息
 
 浏览器中打开http://192.168.20.20:1080/status查看相关运行信息
+
+##### etcd数据备份恢复
+
+参考
+
+>https://yq.aliyun.com/articles/561894
+>
+>https://my.oschina.net/u/2306127/blog/2979019
+
+```shell
+root@node01:~# apt install etcd-client
+
+# 备份数据
+root@node01:~# export ETCDCTL_API=3
+
+root@node01:~# etcdctl --endpoints https://192.168.20.101:2379 --cert=/etc/kubernetes/pki/etcd/server.crt --key=/etc/kubernetes/pki/etcd/server.key --cacert=/etc/kubernetes/pki/etcd/ca.crt snapshot save backup.db
+
+# 模拟数据故障恢复
+# 删除数据
+root@node01:~# rm -rf /var/lib/etcd
+
+# 数据恢复
+
+# 修改/etc/kubernetes/manifests/etcd.yaml 中的image版本号，保证停止etcd容器后不再重启 恢复完之后再改回
+# 停止kubelet
+root@node01:~# systemctl stop kubelet
+root@node01:~# docker container stop k8s_Pod_etcd*********
+# 恢复
+root@node01:~# etcdctl snapshot restore backup.db --data-dir=/var/lib/etcd/
+```
+
