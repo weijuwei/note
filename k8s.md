@@ -2142,24 +2142,6 @@ ingress-nginx   NodePort   10.99.107.150   <none>        80:30080/TCP,443:30443/
 创建后端测试pod
 
 ```yaml
-cat ingress-test.yml
----
-apiVersion: extensions/v1beta1
-kind: Ingress
-metadata:
-  name: ingress-myapp
-  namespace: test-ns
-  annotations:
-    kubernetes.io/ingress.class: "nginx"
-spec:
-  rules:
-  - host: myapp.example.com
-    http:
-      paths:
-      - path:
-        backend:
-          serviceName: myapp-rc
-          servicePort: 80
 [root@k8s-master ingress-nginx]# cat rc-test.yml
 apiVersion: v1
 kind: Namespace
