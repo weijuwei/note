@@ -1,9 +1,0 @@
-FROM centos:latest
-RUN mkdir /apps && yum install -y gcc make net-tools vim iproute  openssl-devel zlib-devel pcre-devel
-ADD nginx-1.10.3.tar.gz /apps
-RUN cd /apps/nginx-1.10.3 && ./configure --prefix=/apps/nginx --with-openssl=/usr/lib64/openssl && make && make install
-WORKDIR /apps/nginx
-RUN echo "my nginx docker image" > /apps/nginx/html/index.html
-RUN rm -rf /apps/nginx-1.10.3 /apps/nginx-1.10.3.tar.gz  && yum clean all
-EXPOSE 80
-CMD ["nginx","-g","daemon off;"]
