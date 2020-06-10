@@ -1,4 +1,4 @@
-FROM centos:latest
+FROM weijuwei/centos:7.5
 MAINTAINER "weijuwei<583112952@qq.com>"
 ARG VER=1.18.0
 RUN mkdir /apps && yum install -y gcc make net-tools vim iproute  openssl-devel zlib-devel pcre-devel
