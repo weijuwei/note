@@ -1,0 +1,9 @@
+FROM weijuwei/openjdk:1.8.0
+LABEL maintainer="weijuwei<583112952@qq.com>"
+ADD apache-tomcat-9.0.36.tar.gz /apps
+RUN ln -s /apps/apache-tomcat-9.0.36 /apps/tomcat
+RUN rm -f /apps/apache-tomcat-9.0.36.tar.gz
+ENV CATALINA_HOME /apps/tomcat
+ENV PATH $PATH:$CATALINA_HOME/bin:$CATALINA_HOME/lib
+EXPOSE 8080
+ENTRYPOINT /apps/tomcat/bin/startup.sh && tail -F /apps/tomcat/logs/catalina.out
