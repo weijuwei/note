@@ -169,3 +169,43 @@ app  app.war  docs  examples  host-manager  manager  ROOT
 4、选择Bulid with Parameters
 
 ![1563933749095](assets/1563933749095.png)
+
+##### 6、简单流水线
+
+```Groovy 
+node {
+    stage ("git拉取代码 "){
+        git 'https://github.com/weijuwei/easy-springmvc-maven.git'
+    }
+    
+    stage ("构建编译 "){
+        sh"""
+        cd $workspace
+        mvn clean install -U -Pdev
+        """
+    }
+    
+    stage ("打包docker镜像 ") {
+         // deploy adapters: [tomcat8(credentialsId: '9407a670-c158-4a16-8f9a-3ef93f7eb539', path: '', url: 'http://192.168.1.254:8080')], contextPath: '/app', onFailure: false, war: '**/*.war'    
+        echo "create Dockerfile"
+sh'''
+cat > Dockerfile << EOF
+FROM weijuwei/tomcat:8.5.56
+ADD target/*.war /apps/tomcat/webapps/app.war
+EOF
+
+docker build -t jenkins_tomcat:1.0  .
+'''
+
+echo "make docker image success!!!!"
+
+}
+ 
+    stage ("start a container") {
+        sh"""
+            docker run -it -d -p 8888:8080 --name jenkins_tomcat jenkins_tomcat:1.0
+        """
+    }   
+}
+```
+
