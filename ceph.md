@@ -255,6 +255,15 @@ resize2fs /dev/rbd0
 [root@node1 my-ceph]# rbd map rbd_test.img -p mytest
 /dev/rbd0
 
+# 取消image map
+[root@node1 ceph]# rbd unmap /dev/rbd0
+
+
+# 查看map
+[root@node1 my-ceph]# rbd showmapped
+id pool   image        snap device    
+0  mytest rbd_test.img -    /dev/rbd0 
+
 # 格式化rbd image并挂载
 [root@node1 my-ceph]# mkfs.ext4 /dev/rbd0
 mke2fs 1.42.9 (28-Dec-2013)
@@ -282,10 +291,12 @@ Writing superblocks and filesystem accounting information: done
 [root@node1 my-ceph]# mount /dev/rbd0 /mnt
 [root@node1 my-ceph]# ls /mnt
 lost+found
+
 # 文件自动挂载设置 修改/etc/ceph/rbdmap，/etc.fstab
 [root@node1 my-ceph]# vim /etc/ceph/rbdmap 
-mytest/rbd_test.img id=admin.keyring=/etc/ceph/ceph.client.keyring
+mytest/rbd_test.img id=admin.keyring=/etc/ceph/ceph.client.admin.keyring
 
+[root@node1 my-ceph]# systemctl enable rbdmap.service
 
 # 查看map
 [root@node1 my-ceph]# rbd showmapped
@@ -293,7 +304,7 @@ id pool   image        snap device
 0  mytest rbd_test.img -    /dev/rbd0 
 
 
-# 取消rbd mao
+# 取消rbd map
 rbd unmap /dev/rbd0
 ```
 
@@ -340,8 +351,6 @@ ceph-deploy mgr create node2 node3
     usage:   3.01GiB used, 12.0GiB / 15.0GiB avail
     pgs: 
 ```
-
-#### 
 
 **报错**
 
