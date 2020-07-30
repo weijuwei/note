@@ -113,7 +113,6 @@ public network = 192.168.20.0/24
 
 ```shell
 [cephu@admin my-cluster]$ ceph-deploy mon create-initial
-
 ```
 
 拷贝相关配置文件和key到admin节点和ceph节点，以便免密使用CLI命令
@@ -351,6 +350,215 @@ ceph-deploy mgr create node2 node3
     usage:   3.01GiB used, 12.0GiB / 15.0GiB avail
     pgs: 
 ```
+
+**mon相关一些操作**
+
+```shell
+# 查看mon的状态
+[root@node1 ~]# ceph mon stat
+e3: 3 mons at {node1=192.168.20.102:6789/0,node2=192.168.20.103:6789/0,node3=192.168.20.104:6789/0}, election epoch 62, leader 0 node1, quorum 0,1,2 node1,node2,node3
+
+# 查看mon选举状态
+[root@node1 ~]# ceph quorum_status | jq .
+{
+  "election_epoch": 62,
+  "quorum": [
+    0,
+    1,
+    2
+  ],
+  "quorum_names": [
+    "node1",
+    "node2",
+    "node3"
+  ],
+  "quorum_leader_name": "node1",
+  "monmap": {
+    "epoch": 3,
+    "fsid": "f34701ec-789e-4406-9147-9ff7c543ac93",
+    "modified": "2020-07-14 09:37:36.994523",
+    "created": "2020-07-14 08:51:07.572101",
+    "features": {
+      "persistent": [
+        "kraken",
+        "luminous"
+      ],
+      "optional": []
+    },
+    "mons": [
+      {
+        "rank": 0,
+        "name": "node1",
+        "addr": "192.168.20.102:6789/0",
+        "public_addr": "192.168.20.102:6789/0"
+      },
+      {
+        "rank": 1,
+        "name": "node2",
+        "addr": "192.168.20.103:6789/0",
+        "public_addr": "192.168.20.103:6789/0"
+      },
+      {
+        "rank": 2,
+        "name": "node3",
+        "addr": "192.168.20.104:6789/0",
+        "public_addr": "192.168.20.104:6789/0"
+      }
+    ]
+  }
+}
+
+# 查看mon的信息
+[root@node1 ~]# ceph mon dump
+dumped monmap epoch 3
+epoch 3
+fsid f34701ec-789e-4406-9147-9ff7c543ac93
+last_changed 2020-07-14 09:37:36.994523
+created 2020-07-14 08:51:07.572101
+0: 192.168.20.102:6789/0 mon.node1
+1: 192.168.20.103:6789/0 mon.node2
+2: 192.168.20.104:6789/0 mon.node3
+
+# 查看指定mon节点详细信息
+[root@node1 ~]# ceph daemon mon.node1 mon_status
+{
+    "name": "node1",
+    "rank": 0,
+    "state": "leader",
+    "election_epoch": 62,
+    "quorum": [
+        0,
+        1,
+        2
+    ],
+    "features": {
+        "required_con": "153140804152475648",
+        "required_mon": [
+            "kraken",
+            "luminous"
+        ],
+        "quorum_con": "4611087853746454523",
+        "quorum_mon": [
+            "kraken",
+            "luminous"
+        ]
+    },
+    "outside_quorum": [],
+    "extra_probe_peers": [],
+    "sync_provider": [],
+    "monmap": {
+        "epoch": 3,
+        "fsid": "f34701ec-789e-4406-9147-9ff7c543ac93",
+        "modified": "2020-07-14 09:37:36.994523",
+        "created": "2020-07-14 08:51:07.572101",
+        "features": {
+            "persistent": [
+                "kraken",
+                "luminous"
+            ],
+            "optional": []
+        },
+        "mons": [
+            {
+                "rank": 0,
+                "name": "node1",
+                "addr": "192.168.20.102:6789/0",
+                "public_addr": "192.168.20.102:6789/0"
+            },
+            {
+                "rank": 1,
+                "name": "node2",
+                "addr": "192.168.20.103:6789/0",
+                "public_addr": "192.168.20.103:6789/0"
+            },
+            {
+                "rank": 2,
+                "name": "node3",
+                "addr": "192.168.20.104:6789/0",
+                "public_addr": "192.168.20.104:6789/0"
+            }
+        ]
+    },
+    "feature_map": {
+        "mon": {
+            "group": {
+                "features": "0x3ffddff8eeacfffb",
+                "release": "luminous",
+                "num": 1
+            }
+        },
+        "osd": {
+            "group": {
+                "features": "0x3ffddff8eeacfffb",
+                "release": "luminous",
+                "num": 3
+            }
+        },
+        "client": {
+            "group": {
+                "features": "0x3ffddff8eeacfffb",
+                "release": "luminous",
+                "num": 3
+            }
+        }
+    }
+}
+
+# 删除一个mon节点
+ceph mon remove [nodexxxx]
+
+# 获取mon map
+[root@node1 ~]# ceph mon getmap -o xx.txt
+got monmap epoch 3
+[root@node1 ~]# monmaptool --print xx.txt
+monmaptool: monmap file xx.txt
+epoch 3
+fsid f34701ec-789e-4406-9147-9ff7c543ac93
+last_changed 2020-07-14 09:37:36.994523
+created 2020-07-14 08:51:07.572101
+0: 192.168.20.102:6789/0 mon.node1
+1: 192.168.20.103:6789/0 mon.node2
+2: 192.168.20.104:6789/0 mon.node3
+
+```
+
+**osd的相关操作**
+
+```shell
+# 查看osd信息
+[root@node1 ~]# ceph osd dump
+
+# 磁盘对应的OSD ID
+[root@node1 ~]# ceph osd tree
+ID CLASS WEIGHT  TYPE NAME      STATUS REWEIGHT PRI-AFF 
+-1       0.01469 root default                           
+-3       0.00490     host node1                         
+ 0   hdd 0.00490         osd.0      up  1.00000 1.00000 
+-5       0.00490     host node2                         
+ 1   hdd 0.00490         osd.1      up  1.00000 1.00000 
+-7       0.00490     host node3                         
+ 2   hdd 0.00490         osd.2      up  1.00000 1.00000 
+
+# 查看指定pool的objects
+[root@node1 ~]# rados -p mytest ls | grep rbd_data.85aa6b8b4567
+rbd_data.85aa6b8b4567.0000000000000433
+rbd_data.85aa6b8b4567.0000000000000421
+rbd_data.85aa6b8b4567.0000000000000021
+rbd_data.85aa6b8b4567.0000000000000000
+rbd_data.85aa6b8b4567.0000000000000431
+rbd_data.85aa6b8b4567.0000000000000600
+...
+
+# 查看osd指定object的map信息 对应pg 主osd
+[root@node1 ~]# ceph osd map mytest rbd_data.85aa6b8b4567.0000000000000400
+osdmap e67 pool 'mytest' (2) object 'rbd_data.85aa6b8b4567.0000000000000400' -> pg 2.ca586edf (2.5f) -> up ([1,2,0], p1) acting ([1,2,0], p1)
+
+# 查看指定块object的信息
+[root@node1 ~]# rados -p mytest stat rbd_data.85aa6b8b4567.0000000000000400
+mytest/rbd_data.85aa6b8b4567.0000000000000400 mtime 2020-07-28 16:55:49.000000, size 8192
+```
+
+
 
 **报错**
 
