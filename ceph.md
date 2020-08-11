@@ -539,6 +539,15 @@ ID CLASS WEIGHT  TYPE NAME      STATUS REWEIGHT PRI-AFF
 -7       0.00490     host node3                         
  2   hdd 0.00490         osd.2      up  1.00000 1.00000 
 
+# 踢出指定osd
+ceph osd out osd.[num]
+
+# 删除 CRUSH 图的对应 OSD 
+ceph osd crush remove osd[num]
+
+# 删除指定osd
+ceph osd rm osd.[num]
+
 # 查看指定pool的objects
 [root@node1 ~]# rados -p mytest ls | grep rbd_data.85aa6b8b4567
 rbd_data.85aa6b8b4567.0000000000000433
