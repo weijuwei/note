@@ -6,6 +6,87 @@
 #### 数据CRUD相关
 
 ```json
+
+----------------------------------------
+# 插入多项数据
+db.fruit.insertMany([{"name" : "apple", "from" : { "country" : "China", "province" : "Guangdong" }, "color" : [ "red", "green" ]}，{name:"orange",from:{country:"China",province:"Hainan"},color:["yellow","cyan"],price: 20},{name:"banana",from:{country:"China",province:"Guangxi"},color:["yellow"],price: 15}])
+> db.fruit.find()
+{ "_id" : ObjectId("5f44854e31b5c4486ad8a195"), "name" : "apple", "from" : { "country" : "China", "province" : "Guangdong" }, "color" : [ "red", "green", "yellow" ] }
+{ "_id" : ObjectId("5f48b285c06856586ca6f9be"), "name" : "orange", "from" : { "country" : "China", "province" : "Hainan" }, "color" : [ "yellow", "cyan" ], "price" : 20 }
+{ "_id" : ObjectId("5f48b285c06856586ca6f9bf"), "name" : "banana", "from" : { "country" : "China", "province" : "Guangxi" }, "color" : [ "yellow" ], "price" : 15 }
+
+# 插入单项数据
+db.fruit.insert({name:"pear",from:{country:"China",province:"Fujian"},color:["yellow","green"],price: 18})
+
+# 查询按指定字段排序显示 sort() -1 降序  1 升序
+> db.fruit.find({},{_id:0,name:1,price:1}).sort({price:-1})
+{ "name" : "orange", "price" : 20 }
+{ "name" : "pear", "price" : 18 }
+{ "name" : "banana", "price" : 15 }
+{ "name" : "apple", "price" : 9 }
+
+> db.fruit.find({name:"apple"})
+{ "_id" : ObjectId("5f44854e31b5c4486ad8a195"), "name" : "apple", "from" : { "country" : "China", "province" : "Guangdong" }, "color" : [ "red", "green" ] }
+
+
+# 向数组内添加元素 $push
+> db.fruit.update({"name":"apple"},{$push: {color:"yellow"}})
+WriteResult({ "nMatched" : 1, "nUpserted" : 0, "nModified" : 1 })
+> db.fruit.findOne()
+{ "_id" : ObjectId("5f44854e31b5c4486ad8a195"), "name" : "apple", "from" : { "country" : "China", "province" : "Guangdong" }, "color" : [ "red", "green", "yellow" ] }
+
+# 数组内删除指定元素 $pull
+> db.fruit.update({"name":"apple"},{$pull: {color:"yellow"})
+WriteResult({ "nMatched" : 1, "nUpserted" : 0, "nModified" : 1 })
+
+# 添加字段 $set
+> db.fruit.update({name:"apple"},{$set:{price: 9}})
+WriteResult({ "nMatched" : 1, "nUpserted" : 0, "nModified" : 1 })
+>
+> db.fruit.findOne()
+{ "_id" : ObjectId("5f44854e31b5c4486ad8a195"), "name" : "apple", "from" : { "country" : "China", "province" : "Guangdong" }, "color" : [ "red", "green", "yellow" ], "price" : 9 }
+# 删除字段 $unset
+> db.fruit.update({name:"apple"},{$unset:{price:""}})
+WriteResult({ "nMatched" : 1, "nUpserted" : 0, "nModified" : 1 })
+
+# 查询数组字段中含有指定元素的条目 $in
+> db.fruit.find({color:{$in:["red"]}})
+{ "_id" : ObjectId("5f44854e31b5c4486ad8a195"), "name" : "apple", "from" : { "country" : "China", "province" : "Guangdong" }, "color" : [ "red", "green", "yellow" ] }
+
+# 查询指定项数值大于 小于数值的项  $lt $gt
+> db.fruit.find({price:{$lt:10}})
+{ "_id" : ObjectId("5f44854e31b5c4486ad8a195"), "name" : "apple", "from" : { "country" : "China", "province" : "Guangdong" }, "color" : [ "red", "green", "yellow" ], "price" : 9 }
+
+# 正则匹配
+
+> db.fruit.find({name:/^a/})   # 查询name值以a开头的条目
+{ "_id" : ObjectId("5f44854e31b5c4486ad8a195"), "name" : "apple", "from" : { "country" : "China", "province" : "Guangdong" }, "color" : [ "red", "green", "yellow" ], "price" : 9 }
+
+> db.fruit.find({name:/p/})   # 查询name值中含有p的条目
+{ "_id" : ObjectId("5f44854e31b5c4486ad8a195"), "name" : "apple", "from" : { "country" : "China", "province" : "Guangdong" }, "color" : [ "red", "green", "yellow" ], "price" : 9 }
+{ "_id" : ObjectId("5f48b5ddc06856586ca6f9c0"), "name" : "pear", "from" : { "country" : "China", "province" : "Fujian" }, "color" : [ "yellow", "green" ], "price" : 18 }
+
+# 多条件查询
+
+# $or 满足条件之一即可
+> db.fruit.find({$or:[{color:{$in:["red"]}},{price:{$lt:18}}]})
+{ "_id" : ObjectId("5f44854e31b5c4486ad8a195"), "name" : "apple", "from" : { "country" : "China", "province" : "Guangdong" }, "color" : [ "red", "green", "yellow" ], "price" : 9 }
+{ "_id" : ObjectId("5f48b285c06856586ca6f9bf"), "name" : "banana", "from" : { "country" : "China", "province" : "Guangxi" }, "color" : [ "yellow" ], "price" : 15 }
+
+# $and 俩条件必须都满足
+> db.fruit.find({color:{$in:["red"]},price:{$lt:18}})
+{ "_id" : ObjectId("5f44854e31b5c4486ad8a195"), "name" : "apple", "from" : { "country" : "China", "province" : "Guangdong" }, "color" : [ "red", "green", "yellow" ], "price" : 9 }
+
+----------------------------------------
+# 查询含有指定字段的数据，并显示指定字段
+> db.inventory.find({tags:{$exists:true}},{item:1,_id:0,qty:1})
+{ "item" : "journal", "qty" : 25 }
+{ "item" : "notebook", "qty" : 50 }
+{ "item" : "paper", "qty" : 100 }
+{ "item" : "planner", "qty" : 75 }
+{ "item" : "postcard", "qty" : 45 }
+{ "item" : "canvas", "qty" : 100 }
+----------------------------------------
 db.inventory.insertMany([
    { item: "journal", qty: 25, size: { h: 14, w: 21, uom: "cm" }, status: "A" },
    { item: "notebook", qty: 50, size: { h: 8.5, w: 11, uom: "in" }, status: "A" },
@@ -366,6 +447,8 @@ db.bios.insertMany([
 mongo "mongodb+srv://cluster0.oayyo.mongodb.net/test" --username weijuwei --password 583112952
 
 > db.inventory.find({tags:{$exists:true}})
+
+# 聚合查询
 > db.inventory.aggregate([{$group:{_id:'$item',counts:{$sum:"$qty"}}}])
 > db.inventory.aggregate([{$group:{_id:'$item',counts:{$sum:"$qty"}}},{$match:{_id:"paper"}}])
 > db.inventory.aggregate([{$group:{_id:'$item',counts:{$sum:1}}},{$match:{counts:{$lt:2}}}])
@@ -642,6 +725,24 @@ Query Routers:
 前端路由，客户端由此接入，且让整个集群看上去像单一数据库，前端应用可以透明使用。
 ```shell
  ..\bin\mongos.exe --port 40000 --configdb "rs0/localhost:28010,localhost:28011,localhost:28012" --logpath="d:\Desktop\mongodb\shard\logs\route.log" --logappend --noauth
+```
+添加各个分片
+```shell
+# shardserver是单节点使用db.runCommand({addshard:""})命令
+# 复制集的话使用sh.addShard(shardName/xxx:xx,xxx:xx,xxx:xx)
+mongos> db.runCommand({addshard:"localhost:28017"})
+{
+    "shardAdded" : "shard0000",
+    "ok" : 1,
+    "operationTime" : Timestamp(1598572274, 4),
+    "$clusterTime" : {
+        "clusterTime" : Timestamp(1598572274, 4),
+        "signature" : {
+            "hash" : BinData(0,"AAAAAAAAAAAAAAAAAAAAAAAAAAA="),
+            "keyId" : NumberLong(0)
+        }
+    }
+}
 ```
 查看状态信息
 
