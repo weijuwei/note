@@ -77,6 +77,31 @@ WriteResult({ "nMatched" : 1, "nUpserted" : 0, "nModified" : 1 })
 > db.fruit.find({color:{$in:["red"]},price:{$lt:18}})
 { "_id" : ObjectId("5f44854e31b5c4486ad8a195"), "name" : "apple", "from" : { "country" : "China", "province" : "Guangdong" }, "color" : [ "red", "green", "yellow" ], "price" : 9 }
 
+# 创建索引
+> db.fruit.createIndex({"name":1},{background: true})
+{
+        "createdCollectionAutomatically" : false,
+        "numIndexesBefore" : 1,
+        "numIndexesAfter" : 2,
+        "ok" : 1
+}
+> db.fruit.getIndexes()
+[
+        {
+                "v" : 2,
+                "key" : {
+                        "_id" : 1
+                },
+                "name" : "_id_"
+        },
+        {
+                "v" : 2,
+                "key" : {
+                        "name" : 1
+                },
+                "name" : "name_1"
+        }
+]
 ----------------------------------------
 # 查询含有指定字段的数据，并显示指定字段
 > db.inventory.find({tags:{$exists:true}},{item:1,_id:0,qty:1})
@@ -530,11 +555,13 @@ result:
 ```
 #### 复制集
 
+##### 节点分布
 一主二从
 node1  28017
 node2  28018
 node3  28019
 
+##### 配置
 ```shell
 node1 :mongodb.conf 配置文件
 systemLog:
@@ -679,11 +706,49 @@ rs0:SECONDARY> db.test.find()
 { "_id" : ObjectId("5f46415f079259edc4a06294"), "count" : 1 }
 { "_id" : ObjectId("5f464248079259edc4a06295"), "count" : 1 }
 ```
+
+##### 模拟故障测试
+
+持续插入数据脚本
+```
+db.test.drop()
+for(var i=1;i<1000;i++){
+  db.test.insert({item: i});
+  inserted = db.test.findOne({item: i});
+  if(inserted)
+    print("Item "+i+" was inserted " + new Date().getTimne()/1000 +);
+  else 
+    print("Unexpected "+ inserted)
+  sleep(2000)
+}
+```
+连接客户端，启动插入数据脚本
+```shell
+.\bin\mongo.exe --retryWrites mongodb://localhost:28017,localhost:28018,localhost:28019/test?replicaSet=rs0 .\ingest-script
+MongoDB shell version v4.4.0
+connecting to: mongodb://localhost:28017,localhost:28018,localhost:28019/test?compressors=disabled&gssapiServiceName=mongodb&replicaSet=rs0
+Implicit session: session { "id" : UUID("5e7bc84c-f76f-46ce-958e-811a75142ff8") }
+MongoDB server version: 4.4.0
+Item 1 was inserted 1599030449.799
+Item 2 was inserted 1599030451.81
+Item 3 was inserted 1599030453.816
+Item 4 was inserted 1599030455.829
+Item 5 was inserted 1599030457.865
+Item 6 was inserted 1599030459.881
+Item 7 was inserted 1599030461.894
+Item 8 was inserted 1599030463.915
+Item 9 was inserted 1599030465.926
+Item 10 was inserted 1599030467.932
+Item 11 was inserted 1599030469.938
+.....
+```
+关闭集群中的一台，观察数据的插入情况
+
 #### 分片
 > https://docs.mongodb.com/manual/tutorial/deploy-shard-cluster/
 
 
-Shard:
+##### Shard
 用于存储实际的数据块，实际生产环境中一个shard server角色可由几台机器组个一个replica set承担，防止主机单点故障
 shardserver配置文件
 ```yaml
@@ -702,7 +767,7 @@ sharding:  # shard role
   clusterRole: shardsvr
 ```
 
-Config Server:
+##### Config Server
 mongod实例，存储了整个 ClusterMetadata，其中包括 chunk信息。
 config server配置文件
 ```yaml
@@ -721,7 +786,7 @@ sharding:  # shard role
   clusterRole: configsvr
 ```
 
-Query Routers:
+##### Query Routers:
 前端路由，客户端由此接入，且让整个集群看上去像单一数据库，前端应用可以透明使用。
 ```shell
  ..\bin\mongos.exe --port 40000 --configdb "rs0/localhost:28010,localhost:28011,localhost:28012" --logpath="d:\Desktop\mongodb\shard\logs\route.log" --logappend --noauth
@@ -744,7 +809,7 @@ mongos> db.runCommand({addshard:"localhost:28017"})
     }
 }
 ```
-查看状态信息
+##### 查看状态信息
 
 连接mongos查看
 ```shell
@@ -790,7 +855,7 @@ rs0:PRIMARY> db.mongos.find()
 { "_id" : "DESKTOP-FA6MB81:40000", "advisoryHostFQDNs" : [ ], "mongoVersion" : "4.4.0", "ping" : ISODate("2020-08-27T23:57:15.545Z"), "up" : NumberLong(605), "waiting" : true }
 ```
 
-插入数据测试
+##### 插入数据测试
 在mongos上设置需要sharding的数据库，并指定shard key及shard算法
 ```shell
 mongos> sh.enableSharding("test")
@@ -827,6 +892,7 @@ mongos> sh.shardCollection("test.user",{id:"hashed"})
 mongos> for(i=1;i<1000;i++){db.user.insert({id:i,name:"Tom"})}
 ```
 
+##### 查看数据分布
 在3个shard server上分别查看数据分布情况
 ```shell
 > use test
