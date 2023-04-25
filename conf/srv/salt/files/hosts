@@ -1,0 +1,6 @@
+127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+192.168.56.3 node1 node1.xl.com
+192.168.56.4 node2 node2.xl.com
+{{role}}
+{{ grains['fqdn'] }}
