@@ -11,6 +11,7 @@ keepalived_install:
       - file: keepalived_install
     - unless: test -d /apps/keepalived
 
+
 keepalived_config_file:
   file.managed:
     - name: /etc/keepalived/keepalived.conf
