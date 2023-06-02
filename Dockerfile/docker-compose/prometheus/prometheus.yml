@@ -9,10 +9,11 @@ alerting:
   alertmanagers:
     - static_configs:
         - targets:
-          - prometheus:9093
+          - alertmanager:9093
 
 # Load rules once and periodically evaluate them according to the global 'evaluation_interval'.
 rule_files:
+  - "/etc/prometheus/alert_rules/instances_down.yml"
   # - "first_rules.yml"
   # - "second_rules.yml"
 
@@ -25,9 +26,17 @@ scrape_configs:
     # scheme defaults to 'http'.
     static_configs:
       - targets: ["prometheus:9090"]
+        labels:
+          instance: prometheus
+
   - job_name: "docker"
     static_configs:
       - targets: ["cadvisor:8080"]
+        labels:
+          instance: docker
+
   - job_name: "node_exporter"
     static_configs:
       - targets: ["node_exporter:9100"]
+        labels:
+          instance: node_exporter

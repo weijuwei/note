@@ -5,12 +5,21 @@ services:
     image: prom/prometheus:v2.37.7
     volumes:
       - /root/docker-compose/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - /root/docker-compose/prometheus/alert_rules:/etc/prometheus/alert_rules
     ports:
       - 9090:9090
     networks:
       - prometheus
         #    command:
         #- '--web.enable-lifcycle'
+
+  alertmanager:
+    container_name: alertmanager
+    image: prom/alertmanager
+    ports:
+      - 9093:9093
+    networks:
+      - prometheus
 
   cadvisor:
     container_name: cadvisor
