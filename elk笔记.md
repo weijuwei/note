@@ -109,7 +109,7 @@ curl 192.168.10.200:9200
 
 
 
-#### 1、docker搭建ES集群
+#### 1.1、docker搭建ES集群
 
 相关目录准备
 
@@ -272,6 +272,163 @@ curl -XDELETE 192.168.10.200:9200/test_index/books/1
 ```shell
 curl -XDELETE 192.168.10.200:9200/test_index/
 ```
+
+---------------------
+
+
+<h4>docker-compose部署</h4>
+
+**文件准备**
+
+```shell
+[root@lab elk]# mkdir /apps/elk/eso{0,1} -p
+
+[root@lab elk]# cat >> /apps/elk/es01/elasticsearch.yml<<EOF 
+cluster.name: es-docker
+node.name: es01
+#network.bind_host: 0.0.0.0
+#network.publish_host: 0.0.0.0
+network.host: es01
+http.port: 9200
+transport.tcp.port: 9300
+discovery.zen.ping.unicast.hosts: ["es01:9300","es02:9300"]
+http.cors.enabled: true
+http.cors.allow-origin: "*"
+node.master: true
+node.data: true
+discovery.zen.minimum_master_nodes: 1
+EOF
+
+[root@lab elk]# cat >> /apps/elk/es02/elasticsearch.yml<<EOF 
+cluster.name: es-docker
+node.name: es02
+#network.bind_host: 0.0.0.0
+#network.publish_host: 0.0.0.0
+network.host: es02
+http.port: 9200
+transport.tcp.port: 9300
+discovery.zen.ping.unicast.hosts: ["es01:9300","es02:9300"]
+http.cors.enabled: true
+http.cors.allow-origin: "*"
+node.master: true
+node.data: true
+discovery.zen.minimum_master_nodes: 1
+EOF
+
+[root@lab elk]# tree /apps/elk/
+/apps/elk/
+├── es01
+│   ├── elasticsearch.yml
+├── es02
+│   ├── elasticsearch.yml
+
+```
+
+**运行启动**
+
+```shell
+[root@lab elk]# docker-compose up -d
+Creating network "elk_elastic1" with driver "bridge"
+Creating kibana ... done
+Creating kibana ... 
+Creating es02 ... 
+[root@lab elk]# docker-compose ps
+ Name               Command               State                Ports              
+----------------------------------------------------------------------------------
+es01     /docker-entrypoint.sh elas ...   Up      0.0.0.0:9200->9200/tcp, 9300/tcp
+es02     /docker-entrypoint.sh elas ...   Up      9200/tcp, 9300/tcp              
+kibana   /docker-entrypoint.sh kibana     Up      0.0.0.0:5601->5601/tcp   
+#查看集群信息
+
+[root@lab elk]# curl localhost:9200/_cat/health
+1685791653 11:27:33 es-docker green 2 2 12 6 0 0 0 0 - 100.0%
+[root@lab elk]# curl localhost:9200/_cat/nodes
+192.168.128.2 35 96 35 2.22 1.24 0.88 mdi * es01
+192.168.128.3 29 96 35 2.22 1.24 0.88 mdi - es02
+```
+
+**compose文件**
+
+```shell
+[root@lab elk]# cat docker-compose.yml
+version: '3'
+services:
+  es01:
+    image: elasticsearch:5.6.12
+    container_name: es01
+    environment:
+#      - node.name=es01
+#      - cluster.name=docker-cluster
+#      - network.publish_host=es01
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
+#      - discovery.zen.ping.unicast.hosts=["es01","es02"]
+#      - discovery.zen.minimum_master_nodes=1
+#      - http.cors.allow-origin="*"
+#      - node.master=true
+#      - node.data=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - 9200:9200
+    volumes:
+      - es01_data:/usr/share/elasticsearch/data
+      - /apps/elk/es01/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+    networks:
+      - elastic1
+
+  es02:
+    image: elasticsearch:5.6.12
+    container_name: es02
+    environment:
+#      - node.name=es02
+#      - cluster.name=docker-cluster
+      - bootstrap.memory_lock=true
+#      - network.publish_host=es02
+#      - http.port=9200
+#      - transport.tcp.port=9300
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
+#      - discovery.zen.ping.unicast.hosts=["es01","es02"]
+#      - discovery.zen.minimum_master_nodes=1
+#      - http.cors.allow-origin="*"
+#      - node.master=true
+#      - node.data=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - es02_data:/usr/share/elasticsearch/data
+      - /apps/elk/es02/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+    networks:
+      - elastic1
+
+  kibana:
+    image: kibana:5.6.12
+    container_name: kibana
+    ports:
+      - 5601:5601
+    environment:
+      - ELASTICSEARCH_URL=http://es01:9200
+#    volumes:
+#      - /apps/elk/kibana:/etc/kibana
+    networks:
+      - elastic1
+
+volumes:
+  es01_data:
+    driver: local
+  es02_data:
+    driver: local
+
+networks:
+  elastic1:
+    driver: bridge
+```
+
+----------------------------------------------------------------
 
 **安装head插件**
 

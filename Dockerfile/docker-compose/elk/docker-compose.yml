@@ -1,0 +1,75 @@
+version: '3'
+services:
+  es01:
+    image: elasticsearch:5.6.12
+    container_name: es01
+    environment:
+#      - node.name=es01
+#      - cluster.name=docker-cluster
+#      - network.publish_host=es01
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
+#      - discovery.zen.ping.unicast.hosts=["es01","es02"]
+#      - discovery.zen.minimum_master_nodes=1
+#      - http.cors.allow-origin="*"
+#      - node.master=true
+#      - node.data=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - 9200:9200
+    volumes:
+      - es01_data:/usr/share/elasticsearch/data
+      - /apps/elk/es01/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+    networks:
+      - elastic
+
+  es02:
+    image: elasticsearch:5.6.12
+    container_name: es02
+    environment:
+#      - node.name=es02
+#      - cluster.name=docker-cluster
+      - bootstrap.memory_lock=true
+#      - network.publish_host=es02
+#      - http.port=9200
+#      - transport.tcp.port=9300
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
+#      - discovery.zen.ping.unicast.hosts=["es01","es02"]
+#      - discovery.zen.minimum_master_nodes=1
+#      - http.cors.allow-origin="*"
+#      - node.master=true
+#      - node.data=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - es02_data:/usr/share/elasticsearch/data
+      - /apps/elk/es02/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+    networks:
+      - elastic
+
+  kibana:
+    image: kibana:5.6.12
+    container_name: kibana
+    ports:
+      - 5601:5601
+    environment:
+      - ELASTICSEARCH_URL=http://es01:9200
+#    volumes:
+#      - /apps/elk/kibana:/etc/kibana
+    networks:
+      - elastic
+
+volumes:
+  es01_data:
+    driver: local
+  es02_data:
+    driver: local
+
+networks:
+  elastic:
+    driver: bridge

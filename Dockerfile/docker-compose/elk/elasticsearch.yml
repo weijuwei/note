@@ -1,0 +1,13 @@
+cluster.name: es-docker
+node.name: es01
+#network.bind_host: 0.0.0.0
+#network.publish_host: 0.0.0.0
+network.host: es01
+http.port: 9200
+transport.tcp.port: 9300
+discovery.zen.ping.unicast.hosts: ["es01:9300","es02:9300"]
+http.cors.enabled: true
+http.cors.allow-origin: "*"
+node.master: true
+node.data: true
+discovery.zen.minimum_master_nodes: 1
