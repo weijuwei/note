@@ -307,7 +307,7 @@ yum install logstash-5.6.15.rpm -y
 1、通过命令行验证：
 
 ```shell
-/usr/share/logstash/bin/logstash -e “input {stdin{}} output{stdout{ codec=>”rubydebug“}}”
+/usr/share/logstash/bin/logstash -e "input {stdin{}} output{stdout{ codec=>"rubydebug"}}"
 ```
 
 2、通过指定配置文件验证
@@ -990,7 +990,6 @@ output {
 ```
 
 验证查看
-
 
 
 
