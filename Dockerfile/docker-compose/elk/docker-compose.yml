@@ -22,7 +22,7 @@ services:
       - 9200:9200
     volumes:
       - es01_data:/usr/share/elasticsearch/data
-      - /apps/elk/es01/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+      - ./elasticsearch01.yml:/usr/share/elasticsearch/config/elasticsearch.yml
     networks:
       - elastic
 
@@ -48,7 +48,7 @@ services:
         hard: -1
     volumes:
       - es02_data:/usr/share/elasticsearch/data
-      - /apps/elk/es02/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+      - ./elasticsearch02.yml:/usr/share/elasticsearch/config/elasticsearch.yml
     networks:
       - elastic
 
